@@ -1,0 +1,43 @@
+import { Navigate, useLocation } from "react-router";
+import { useSelector } from "react-redux";
+import {
+	selectAuthRole,
+	selectAuthStatus,
+	selectAuthUser,
+} from "../store/slices/authSlice";
+import { ROUTES } from "../constants/routes";
+import Spinner from "../components/common/Spinner";
+
+function RoleGuard({ allow, children }) {
+	const status = useSelector(selectAuthStatus);
+	const role = useSelector(selectAuthRole);
+	const user = useSelector(selectAuthUser);
+	const location = useLocation();
+
+	if (status === "idle" || status === "loading") {
+		return (
+			<div className="flex min-h-[40vh] items-center justify-center">
+				<Spinner />
+			</div>
+		);
+	}
+
+	if (!user) {
+		return (
+			<Navigate
+				to={ROUTES.SIGN_IN}
+				state={{ from: location.pathname }}
+				replace
+			/>
+		);
+	}
+
+	const allowed = Array.isArray(allow) ? allow : [allow];
+	if (!allowed.includes(role)) {
+		return <Navigate to={ROUTES.FORBIDDEN} replace />;
+	}
+
+	return children;
+}
+
+export default RoleGuard;

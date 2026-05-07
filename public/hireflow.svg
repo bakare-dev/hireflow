@@ -1,0 +1,58 @@
+<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <!-- Diagonal gradient suggesting flow -->
+    <linearGradient id="hfGradient" x1="0" y1="0" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0A1A3F"/>
+      <stop offset="55%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+
+    <!-- Accent gradient for the flow element -->
+    <linearGradient id="flowAccent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+
+    <!-- Soft drop shadow for depth -->
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.25"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Logo group with shadow -->
+  <g filter="url(#softShadow)">
+    <!-- Shared central spine (slight rounded ends) -->
+    <rect x="100" y="20" width="20" height="200" rx="4" fill="url(#hfGradient)"/>
+
+    <!-- H left vertical -->
+    <rect x="40" y="20" width="20" height="200" rx="4" fill="url(#hfGradient)"/>
+
+    <!-- H middle connector -->
+    <rect x="40" y="100" width="80" height="20" rx="4" fill="url(#hfGradient)"/>
+
+    <!-- F top bar -->
+    <rect x="100" y="40" width="80" height="20" rx="4" fill="url(#hfGradient)"/>
+
+    <!-- F middle bar -->
+    <rect x="100" y="100" width="60" height="20" rx="4" fill="url(#hfGradient)"/>
+  </g>
+
+  <!-- Flow accent: a dynamic streak cutting diagonally through the F arm,
+       evoking motion / "flow" -->
+  <g opacity="0.95">
+    <path d="M 168 52 L 200 36 L 196 60 L 172 68 Z"
+          fill="url(#flowAccent)"/>
+    <circle cx="206" cy="40" r="5" fill="#06B6D4"/>
+  </g>
+
+  <!-- Subtle accent dot anchoring the H -->
+  <circle cx="50" cy="220" r="4" fill="#3B82F6" opacity="0.85"/>
+</svg>

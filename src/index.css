@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/* Tailwind v4 reads design tokens from `@theme`. Anything defined here
+ * becomes both a CSS variable and a utility class — e.g. `--color-brand-500`
+ * generates `bg-brand-500`, `text-brand-500`, ring-brand-500/…
+ *
+ * We keep the stock Tailwind palette (slate, emerald, rose, etc.) for the bulk
+ * of the UI and only add HireFlow-specific aliases here so brand surfaces stay
+ * consistent across screens.
+ */
+@theme {
+	/* Brand — used for primary CTAs, highlights, badges referencing HireFlow */
+	--color-brand-50: #eff6ff;
+	--color-brand-100: #dbeafe;
+	--color-brand-200: #bfdbfe;
+	--color-brand-500: #3b82f6;
+	--color-brand-600: #2563eb;
+	--color-brand-700: #1d4ed8;
+	--color-brand-900: #0a1a3f;
+
+	/* Accent — used sparingly for AI / pipeline cues */
+	--color-accent-500: #06b6d4;
+	--color-accent-600: #0891b2;
+
+	/* Typography — Inter loaded via index.html, with system fallbacks */
+	--font-sans:
+		"Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+		"Segoe UI", sans-serif;
+}
+
+/* Brand gradients are not utility-mapped (Tailwind v4 doesn't auto-generate
+ * gradient utilities from arbitrary CSS variables). Keep them as plain custom
+ * properties — apply via `style={{ background: 'var(--gradient-brand)' }}` or
+ * a small reusable class.
+ */
+:root {
+	--gradient-brand: linear-gradient(
+		135deg,
+		#0a1a3f 0%,
+		#1e3a8a 55%,
+		#3b82f6 100%
+	);
+	--gradient-flow: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+}
+
+body {
+	margin: 0;
+	min-width: 320px;
+	min-height: 100vh;
+	background-color: var(--color-slate-50);
+	color: var(--color-slate-900);
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+	min-height: 100vh;
+}

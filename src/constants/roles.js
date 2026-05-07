@@ -17,7 +17,7 @@ export const ACTOR_ROLES = Object.freeze({
 });
 
 export const ROLE_HOME_PATHS = Object.freeze({
-	[USER_ROLES.APPLICANT]: "/jobs",
-	[USER_ROLES.HIRING_MANAGER]: "/hm",
-	[USER_ROLES.ADMIN]: "/admin",
+	[USER_ROLES.APPLICANT]: "/applicant/jobs",
+	[USER_ROLES.HIRING_MANAGER]: "/dashboard",
+	[USER_ROLES.ADMIN]: "/dashboard",
 });

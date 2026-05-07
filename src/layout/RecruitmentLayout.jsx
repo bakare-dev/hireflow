@@ -1,7 +1,11 @@
+import { useMemo } from "react";
+import { useSelector } from "react-redux";
 import AppLayout from "./AppLayout";
 import { ROUTES } from "../constants/routes";
+import { USER_ROLES } from "../constants/roles";
+import { selectAuthRole } from "../store/slices/authSlice";
 
-const NAV_ITEMS = [
+const SHARED_NAV = [
 	{ label: "Dashboard", to: ROUTES.DASHBOARD, end: true },
 	{ label: "Job listings", to: ROUTES.JOB_LISTINGS },
 	{ label: "Candidates", to: ROUTES.CANDIDATES },
@@ -11,13 +15,29 @@ const NAV_ITEMS = [
 	{ label: "Analytics", to: ROUTES.ANALYTICS },
 	{ label: "Messages", to: ROUTES.MESSAGES },
 	{ label: "Notifications", to: ROUTES.NOTIFICATIONS },
+];
+
+const ADMIN_ONLY_NAV = [
 	{ label: "Team Management", to: ROUTES.TEAM_MANAGEMENT },
 	{ label: "Audit Logs", to: ROUTES.AUDIT_LOGS },
 	{ label: "Organization Settings", to: ROUTES.ORGANIZATION_SETTINGS },
 ];
 
-function AdminLayout() {
-	return <AppLayout navItems={NAV_ITEMS} title="Admin" />;
+function RecruitmentLayout() {
+	const role = useSelector(selectAuthRole);
+	const navItems = useMemo(() => {
+		if (role === USER_ROLES.ADMIN) {
+			return [...SHARED_NAV, ...ADMIN_ONLY_NAV];
+		}
+		return SHARED_NAV;
+	}, [role]);
+
+	return (
+		<AppLayout
+			navItems={navItems}
+			title={role === USER_ROLES.ADMIN ? "Admin" : "Hiring Manager"}
+		/>
+	);
 }
 
-export default AdminLayout;
+export default RecruitmentLayout;

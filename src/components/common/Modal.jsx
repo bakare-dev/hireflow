@@ -29,7 +29,7 @@ function Modal({ open, onClose, title, children, footer, size = 'md' }) {
       />
       <div
         className={cn(
-          'relative w-full rounded-xl bg-white shadow-xl ring-1 ring-slate-200',
+          'relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200 sm:max-h-[calc(100vh-4rem)]',
           sizeClass,
         )}
       >
@@ -43,7 +43,7 @@ function Modal({ open, onClose, title, children, footer, size = 'md' }) {
             </h2>
           </div>
         ) : null}
-        <div className="px-5 py-4">{children}</div>
+        <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
         {footer ? (
           <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
             {footer}

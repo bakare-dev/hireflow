@@ -1,0 +1,263 @@
+import { useMemo, useState } from "react";
+import { Link } from "react-router";
+import { useSelector } from "react-redux";
+import Button from "../../components/common/Button";
+import EmptyState from "../../components/common/EmptyState";
+import Input from "../../components/common/Input";
+import Select from "../../components/common/Select";
+import MatchPercentBar from "../../components/domain/MatchPercentBar";
+import { JOB_LISTING_STATUS } from "../../constants/jobStatus";
+import { ROUTES } from "../../constants/routes";
+import { WORK_MODE_LABELS } from "../../constants/employment";
+import { selectAuthUser } from "../../store/slices/authSlice";
+import { selectApplications } from "../../store/slices/applicationsSlice";
+import { selectJobs, selectJobsStatus } from "../../store/slices/jobsSlice";
+import {
+	applicationForJob,
+	applicationLastUpdated,
+	computeMatchPercent,
+	employmentTypeLabel,
+	formatSalary,
+	jobSearchText,
+	matchSkills,
+	nextStageLabel,
+	stageEta,
+	workModeLabel,
+} from "../../utils/applicant";
+import ApplyModal from "./ApplyModal";
+import JobCard from "./JobCard";
+
+const VISIBLE_STEP = 6;
+
+function JobDiscovery() {
+	const user = useSelector(selectAuthUser);
+	const jobs = useSelector(selectJobs);
+	const jobsStatus = useSelector(selectJobsStatus);
+	const applications = useSelector(selectApplications);
+	const [query, setQuery] = useState("");
+	const [workMode, setWorkMode] = useState("");
+	const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
+	const [savedIds, setSavedIds] = useState(() => new Set());
+	const [applyJob, setApplyJob] = useState(null);
+	const [selectedId, setSelectedId] = useState(null);
+
+	const openJobs = useMemo(
+		() => jobs.filter((job) => job.status === JOB_LISTING_STATUS.OPEN),
+		[jobs],
+	);
+
+	const filteredJobs = useMemo(() => {
+		const q = query.trim().toLowerCase();
+		return openJobs.filter((job) => {
+			const matchesQuery = q ? jobSearchText(job).includes(q) : true;
+			const matchesMode = workMode ? job.workMode === workMode : true;
+			return matchesQuery && matchesMode;
+		});
+	}, [openJobs, query, workMode]);
+
+	const visibleJobs = filteredJobs.slice(0, visibleCount);
+	const selectedJob =
+		filteredJobs.find((job) => job.id === selectedId) ??
+		visibleJobs[0] ??
+		filteredJobs[0] ??
+		null;
+	const selectedApplication = selectedJob
+		? applicationForJob(applications, selectedJob.id, user?.id)
+		: null;
+	const selectedMatch = selectedJob ? computeMatchPercent(selectedJob, user) : 0;
+	const selectedSkills = selectedJob ? matchSkills(selectedJob, user) : null;
+	const applyApplication = applyJob
+		? applicationForJob(applications, applyJob.id, user?.id)
+		: null;
+
+	function toggleSave(jobId) {
+		setSavedIds((current) => {
+			const next = new Set(current);
+			if (next.has(jobId)) next.delete(jobId);
+			else next.add(jobId);
+			return next;
+		});
+	}
+
+	return (
+		<div className="space-y-6">
+			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+				<div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+					<div className="flex-1">
+						<p className="text-sm font-medium text-slate-500">Find Jobs</p>
+						<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
+							Find work that feels right.
+						</h1>
+					</div>
+					<div className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_220px] lg:w-[560px]">
+						<Input
+							label="Search"
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+							placeholder="Title, skill, location"
+						/>
+						<Select
+							label="Work mode"
+							value={workMode}
+							onChange={(e) => setWorkMode(e.target.value)}
+							options={[
+								{ value: "", label: "Any" },
+								...Object.entries(WORK_MODE_LABELS).map(
+									([value, label]) => ({ value, label }),
+								),
+							]}
+						/>
+					</div>
+				</div>
+			</section>
+
+			<div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
+				<section className="space-y-3">
+					{jobsStatus === "loading" ? (
+						<EmptyState title="Loading jobs" description="Finding open roles..." />
+					) : visibleJobs.length ? (
+						<>
+							{visibleJobs.map((job) => {
+								const application = applicationForJob(
+									applications,
+									job.id,
+									user?.id,
+								);
+								return (
+									<JobCard
+										key={job.id}
+										job={job}
+										user={user}
+										application={application}
+										selected={selectedJob?.id === job.id}
+										saved={savedIds.has(job.id)}
+										onSelect={() => setSelectedId(job.id)}
+										onApply={() => setApplyJob(job)}
+										onToggleSave={() => toggleSave(job.id)}
+									/>
+								);
+							})}
+							{visibleCount < filteredJobs.length ? (
+								<Button
+									variant="secondary"
+									className="w-full"
+									onClick={() =>
+										setVisibleCount((count) => count + VISIBLE_STEP)
+									}
+								>
+									Load more jobs
+								</Button>
+							) : null}
+						</>
+					) : (
+						<EmptyState
+							title="No open jobs match that search"
+							description="Try a broader title, skill, or work mode."
+						/>
+					)}
+				</section>
+
+				<aside className="hidden lg:block">
+					{selectedJob ? (
+						<div className="sticky top-20 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+							<div className="flex items-start justify-between gap-4">
+								<div>
+									<p className="text-sm text-slate-500">Acme Labs</p>
+									<h2 className="mt-1 text-2xl font-semibold text-slate-950">
+										{selectedJob.title}
+									</h2>
+									<p className="mt-2 text-sm text-slate-600">
+										{selectedJob.location} · {workModeLabel(selectedJob.workMode)} ·{" "}
+										{employmentTypeLabel(selectedJob.employmentType)}
+									</p>
+								</div>
+								<Button
+									variant="secondary"
+									size="sm"
+									onClick={() => toggleSave(selectedJob.id)}
+								>
+									{savedIds.has(selectedJob.id) ? "Saved" : "Save"}
+								</Button>
+							</div>
+
+							<div className="mt-5 grid gap-3 sm:grid-cols-2">
+								<div className="rounded-lg bg-slate-50 p-4">
+									<p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+										Salary
+									</p>
+									<p className="mt-1 text-sm font-semibold text-slate-950">
+										{formatSalary(selectedJob.salary)}
+									</p>
+								</div>
+								<div className="rounded-lg bg-emerald-50 p-4">
+									<p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+										AI match
+									</p>
+									<MatchPercentBar value={selectedMatch} className="mt-2" />
+								</div>
+							</div>
+
+							{selectedApplication ? (
+								<div className="mt-5 rounded-lg border border-slate-200 p-4">
+									<p className="text-sm font-semibold text-slate-950">
+										You applied on {applicationLastUpdated(selectedApplication)}
+									</p>
+									<p className="mt-1 text-sm text-slate-600">
+										Next: {nextStageLabel(selectedApplication.currentStage)}
+									</p>
+									<p className="mt-1 text-sm text-slate-600">
+										{stageEta(selectedApplication.currentStage)}
+									</p>
+								</div>
+							) : null}
+
+							<p className="mt-5 text-sm leading-6 text-slate-700">
+								{selectedJob.description}
+							</p>
+
+							<div className="mt-5">
+								<p className="text-sm font-semibold text-slate-950">
+									Skills in this role
+								</p>
+								<div className="mt-2 flex flex-wrap gap-2">
+									{selectedJob.requiredSkills.map((skill) => (
+										<span
+											key={skill}
+											className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+										>
+											{skill}
+										</span>
+									))}
+								</div>
+								<p className="mt-3 text-sm text-slate-600">
+									Matched: {selectedSkills.matched.join(", ") || "None yet"}
+								</p>
+							</div>
+
+							<div className="mt-6 flex gap-3">
+								<Button
+									onClick={() => setApplyJob(selectedJob)}
+									disabled={!!selectedApplication}
+								>
+									{selectedApplication ? "Already applied" : "Easy apply"}
+								</Button>
+								<Link to={ROUTES.APPLICANT_JOB_DETAIL(selectedJob.id)}>
+									<Button variant="secondary">View details</Button>
+								</Link>
+							</div>
+						</div>
+					) : null}
+				</aside>
+			</div>
+
+			<ApplyModal
+				job={applyJob}
+				open={!!applyJob}
+				onClose={() => setApplyJob(null)}
+				existingApplication={applyApplication}
+			/>
+		</div>
+	);
+}
+
+export default JobDiscovery;

@@ -14,10 +14,12 @@ function loadInitialUserId() {
 
 function persistUserId(userId) {
 	if (typeof window === "undefined") return;
-	try {
-		if (userId) window.localStorage.setItem(STORAGE_KEY, userId);
-		else window.localStorage.removeItem(STORAGE_KEY);
-	} catch {}
+		try {
+			if (userId) window.localStorage.setItem(STORAGE_KEY, userId);
+			else window.localStorage.removeItem(STORAGE_KEY);
+		} catch {
+			return;
+		}
 }
 
 export const loginAs = createAsyncThunk("auth/loginAs", async (userId) => {

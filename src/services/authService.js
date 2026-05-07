@@ -130,7 +130,7 @@ export async function signUpRecruiter({
 
 const OTP_LENGTH = 6;
 
-export async function requestOtp(_email) {
+export async function requestOtp() {
 	await simulateLatency();
 	return { sent: true };
 }

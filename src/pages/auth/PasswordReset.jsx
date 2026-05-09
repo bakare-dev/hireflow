@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useDispatch } from "react-redux";
 import { authService } from "../../services";
-import { showToast } from "../../store/slices/uiSlice";
 import { ROUTES } from "../../constants/routes";
 import Input from "../../components/common/Input";
 import Button from "../../components/common/Button";
+import useToast from "../../hooks/useToast";
 import AuthHeader from "./components/AuthHeader";
 import OtpInput from "./components/OtpInput";
 
@@ -16,8 +15,8 @@ const STEP = Object.freeze({
 });
 
 function PasswordReset() {
-	const dispatch = useDispatch();
 	const navigate = useNavigate();
+	const toast = useToast();
 
 	const [step, setStep] = useState(STEP.EMAIL);
 	const [submitting, setSubmitting] = useState(false);
@@ -76,12 +75,7 @@ function PasswordReset() {
 				code: otp,
 				newPassword,
 			});
-			dispatch(
-				showToast({
-					tone: "success",
-					message: "Password updated. Please sign in.",
-				}),
-			);
+			toast.success("Password updated. Please sign in.");
 			navigate(ROUTES.SIGN_IN);
 		} catch (err) {
 			setError(err.message);

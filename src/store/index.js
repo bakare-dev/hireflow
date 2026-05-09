@@ -4,7 +4,8 @@ import jobsReducer from './slices/jobsSlice'
 import applicationsReducer from './slices/applicationsSlice'
 import interviewsReducer from './slices/interviewsSlice'
 import notificationsReducer from './slices/notificationsSlice'
-import uiReducer from './slices/uiSlice'
+import companyReviewsReducer from './slices/companyReviewsSlice'
+import { baseApi } from '../api/baseApi'
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +14,9 @@ export const store = configureStore({
     applications: applicationsReducer,
     interviews: interviewsReducer,
     notifications: notificationsReducer,
-    ui: uiReducer,
+    companyReviews: companyReviewsReducer,
+    [baseApi.reducerPath]: baseApi.reducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(baseApi.middleware),
 })

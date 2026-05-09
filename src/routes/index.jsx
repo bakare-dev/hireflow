@@ -1,13 +1,17 @@
 import { Navigate, Route, Routes } from "react-router";
+import { useSelector } from "react-redux";
 import { ROUTES } from "../constants/routes";
-import { USER_ROLES } from "../constants/roles";
+import { ROLE_HOME_PATHS, USER_ROLES } from "../constants/roles";
+import {
+	selectAuthRole,
+	selectAuthStatus,
+} from "../store/slices/authSlice";
 
 import PublicLayout from "../layout/PublicLayout";
 import ApplicantLayout from "../layout/ApplicantLayout";
 import RecruitmentLayout from "../layout/RecruitmentLayout";
 import RoleGuard from "./RoleGuard";
 
-import Landing from "../pages/shared/Landing";
 import NotFound from "../pages/shared/NotFound";
 import Forbidden from "../pages/shared/Forbidden";
 import ComingSoon from "../pages/shared/ComingSoon";
@@ -23,9 +27,16 @@ import ApplicationDetail from "../pages/applicant/ApplicationDetail";
 import Messages from "../pages/applicant/Messages";
 import Interviews from "../pages/applicant/Interviews";
 import Profile from "../pages/applicant/Profile";
+import CompanyReviewsHome from "../pages/applicant/CompanyReviewsHome";
+import CompanyProfilePage from "../pages/applicant/CompanyProfilePage";
+import CompanyReviewsListPage from "../pages/applicant/CompanyReviewsListPage";
+import CompanyReviewEntryPage from "../pages/applicant/CompanyReviewEntryPage";
+import CompanyReviewTypeSelectionPage from "../pages/applicant/CompanyReviewTypeSelectionPage";
+import CompanyReviewSubmissionPage from "../pages/applicant/CompanyReviewSubmissionPage";
 import DashboardPage from "../pages/recruitment/DashboardPage";
 import JobListingsPage from "../pages/recruitment/JobListingsPage";
 import JobDetailDashboardPage from "../pages/recruitment/JobDetailDashboardPage";
+import JobListingFormPage from "../pages/recruitment/JobListingFormPage";
 import CandidatesPage from "../pages/recruitment/CandidatesPage";
 import AIScreeningCenterPage from "../pages/recruitment/AIScreeningCenterPage";
 import InterviewCalendarPage from "../pages/recruitment/InterviewCalendarPage";
@@ -35,12 +46,30 @@ import AnalyticsDashboardPage from "../pages/recruitment/AnalyticsDashboardPage"
 import TeamManagementPage from "../pages/recruitment/TeamManagementPage";
 import AuditLogsPage from "../pages/recruitment/AuditLogsPage";
 import OrganizationSettingsPage from "../pages/recruitment/OrganizationSettingsPage";
+import ReviewModerationPage from "../pages/recruitment/ReviewModerationPage";
+
+function RootRedirect() {
+	const status = useSelector(selectAuthStatus);
+	const role = useSelector(selectAuthRole);
+
+	if (status === "idle" || status === "loading") return null;
+	if (status !== "authenticated" || !role) {
+		return <Navigate to={ROUTES.SIGN_IN} replace />;
+	}
+
+	return (
+		<Navigate
+			to={ROLE_HOME_PATHS[role] ?? ROUTES.SIGN_IN}
+			replace
+		/>
+	);
+}
 
 function AppRoutes() {
 	return (
 		<Routes>
 			<Route element={<PublicLayout />}>
-				<Route index element={<Landing />} />
+				<Route index element={<RootRedirect />} />
 				<Route path={ROUTES.DEV_ROLE_SWITCH} element={<RoleSwitch />} />
 				<Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
 			</Route>
@@ -89,6 +118,30 @@ function AppRoutes() {
 					path={ROUTES.APPLICANT_PROFILE}
 					element={<Profile />}
 				/>
+				<Route
+					path={ROUTES.APPLICANT_COMPANY_REVIEWS}
+					element={<CompanyReviewsHome />}
+				/>
+				<Route
+					path={ROUTES.APPLICANT_COMPANY_PROFILE()}
+					element={<CompanyProfilePage />}
+				/>
+				<Route
+					path={ROUTES.APPLICANT_COMPANY_REVIEWS_LIST()}
+					element={<CompanyReviewsListPage />}
+				/>
+				<Route
+					path={ROUTES.APPLICANT_COMPANY_REVIEW_NEW()}
+					element={<CompanyReviewEntryPage />}
+				/>
+				<Route
+					path={ROUTES.APPLICANT_COMPANY_REVIEW_TYPE()}
+					element={<CompanyReviewTypeSelectionPage />}
+				/>
+				<Route
+					path={ROUTES.APPLICANT_COMPANY_REVIEW_SUBMIT()}
+					element={<CompanyReviewSubmissionPage />}
+				/>
 			</Route>
 
 			<Route
@@ -107,6 +160,14 @@ function AppRoutes() {
 				<Route
 					path={ROUTES.JOB_LISTINGS}
 					element={<JobListingsPage />}
+				/>
+				<Route
+					path={ROUTES.JOB_LISTING_NEW}
+					element={<JobListingFormPage />}
+				/>
+				<Route
+					path={ROUTES.JOB_LISTING_EDIT()}
+					element={<JobListingFormPage />}
 				/>
 				<Route
 					path={ROUTES.JOB_DETAIL()}
@@ -156,6 +217,10 @@ function AppRoutes() {
 				<Route
 					path={ROUTES.TEAM_MANAGEMENT}
 					element={<TeamManagementPage />}
+				/>
+				<Route
+					path={ROUTES.REVIEW_MODERATION}
+					element={<ReviewModerationPage />}
 				/>
 				<Route
 					path={ROUTES.AUDIT_LOGS}

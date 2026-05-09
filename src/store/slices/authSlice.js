@@ -1,30 +1,53 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { authService } from "../../services";
+import { setAuthToken } from "../../services/api";
 
 const STORAGE_KEY = "hireflow.session";
 
-function loadInitialUserId() {
+function sanitizeSessionUser(user) {
+	if (!user) return null;
+	const sessionUser = { ...user };
+	delete sessionUser.token;
+	return sessionUser;
+}
+
+function loadInitialSession() {
 	if (typeof window === "undefined") return null;
 	try {
-		return window.localStorage.getItem(STORAGE_KEY) || null;
+		const stored = window.localStorage.getItem(STORAGE_KEY);
+		if (!stored) return null;
+		try {
+			const parsed = JSON.parse(stored);
+			if (parsed?.user) return parsed;
+		} catch {
+			return { userId: stored };
+		}
+		return { userId: stored };
 	} catch {
 		return null;
 	}
 }
 
-function persistUserId(userId) {
+function persistSessionUser(user) {
 	if (typeof window === "undefined") return;
-		try {
-			if (userId) window.localStorage.setItem(STORAGE_KEY, userId);
-			else window.localStorage.removeItem(STORAGE_KEY);
-		} catch {
-			return;
+	try {
+		const sessionUser = sanitizeSessionUser(user);
+		if (sessionUser) {
+			window.localStorage.setItem(
+				STORAGE_KEY,
+				JSON.stringify({ user: sessionUser }),
+			);
+		} else {
+			window.localStorage.removeItem(STORAGE_KEY);
 		}
+	} catch {
+		return;
+	}
 }
 
 export const loginAs = createAsyncThunk("auth/loginAs", async (userId) => {
 	const user = await authService.loginAs(userId);
-	persistUserId(user.id);
+	persistSessionUser(user);
 	return user;
 });
 
@@ -33,7 +56,7 @@ export const signInWithEmail = createAsyncThunk(
 	async (input, { rejectWithValue }) => {
 		try {
 			const user = await authService.signInWithEmail(input);
-			persistUserId(user.id);
+			persistSessionUser(user);
 			return user;
 		} catch (err) {
 			return rejectWithValue({ message: err.message, code: err.code });
@@ -46,7 +69,7 @@ export const signUpApplicant = createAsyncThunk(
 	async (input, { rejectWithValue }) => {
 		try {
 			const user = await authService.signUpApplicant(input);
-			persistUserId(user.id);
+			persistSessionUser(user);
 			return user;
 		} catch (err) {
 			return rejectWithValue({ message: err.message, code: err.code });
@@ -59,7 +82,7 @@ export const signUpRecruiter = createAsyncThunk(
 	async (input, { rejectWithValue }) => {
 		try {
 			const user = await authService.signUpRecruiter(input);
-			persistUserId(user.id);
+			persistSessionUser(user);
 			return user;
 		} catch (err) {
 			return rejectWithValue({ message: err.message, code: err.code });
@@ -70,19 +93,22 @@ export const signUpRecruiter = createAsyncThunk(
 export const restoreSession = createAsyncThunk(
 	"auth/restoreSession",
 	async (_arg, { rejectWithValue }) => {
-		const userId = loadInitialUserId();
-		if (!userId) return rejectWithValue("NO_SESSION");
+		const session = loadInitialSession();
+		if (!session) return rejectWithValue("NO_SESSION");
+		if (session.user?.role) return session.user;
 		try {
-			return await authService.getUserById(userId);
+			return await authService.getUserById(session.userId);
 		} catch {
-			persistUserId(null);
+			persistSessionUser(null);
+			setAuthToken(null);
 			return rejectWithValue("USER_NOT_FOUND");
 		}
 	},
 );
 
 export const logout = createAsyncThunk("auth/logout", async () => {
-	persistUserId(null);
+	persistSessionUser(null);
+	setAuthToken(null);
 });
 
 const authSlice = createSlice({
@@ -92,7 +118,14 @@ const authSlice = createSlice({
 		status: "idle",
 		error: null,
 	},
-	reducers: {},
+	reducers: {
+		setAuthenticatedUser(state, action) {
+			persistSessionUser(action.payload);
+			state.user = sanitizeSessionUser(action.payload);
+			state.status = "authenticated";
+			state.error = null;
+		},
+	},
 	extraReducers: (builder) => {
 		builder
 			.addCase(restoreSession.pending, (state) => {
@@ -145,6 +178,8 @@ const authSlice = createSlice({
 			});
 	},
 });
+
+export const { setAuthenticatedUser } = authSlice.actions;
 
 export const selectAuthUser = (state) => state.auth.user;
 export const selectAuthStatus = (state) => state.auth.status;

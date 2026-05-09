@@ -7,6 +7,19 @@ function Auth() {
 			<AuthLeftSide />
 			<main className="flex min-h-screen items-center justify-center bg-white px-4 py-10 sm:px-6">
 				<div className="w-full max-w-md">
+					<div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
+						<img
+							src="/hireflow.png"
+							alt="HireFlow"
+							className="h-10 w-14 object-contain"
+						/>
+						<span className="text-2xl font-semibold tracking-tight">
+							<span className="text-slate-950">Hire</span>
+							<span className="text-[var(--color-brand-600)]">
+								Flow
+							</span>
+						</span>
+					</div>
 					<Outlet />
 				</div>
 			</main>

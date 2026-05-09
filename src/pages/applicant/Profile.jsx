@@ -1,37 +1,102 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
+import RichTextEditor from "../../components/common/RichTextEditor";
+import SkillTagEditor from "../../components/common/SkillTagEditor";
+import Spinner from "../../components/common/Spinner";
 import { selectAuthUser } from "../../store/slices/authSlice";
-import { buildParsedResume, csvToList } from "../../utils/applicant";
+import { parseResume } from "../../utils/resumeParser";
+import { cn } from "../../utils/classnames";
+
+function buildProfile(user) {
+	return {
+		name: user?.name ?? "",
+		email: user?.email ?? "",
+		location: "",
+		yearsOfExperience: "",
+		salaryExpectation: "",
+		preferences: "",
+	};
+}
+
+function buildResumeData(user) {
+	return {
+		phoneNumber: "",
+		email: user?.email ?? "",
+		linkedIn: "",
+		summary: "",
+		skills: user?.skills ?? [],
+		jobExperience: [],
+	};
+}
 
 function Profile() {
 	const user = useSelector(selectAuthUser);
+	const [tab, setTab] = useState("profile");
 	const [editing, setEditing] = useState(false);
-	const [resumeFile, setResumeFile] = useState(null);
-	const [profile, setProfile] = useState(() => ({
-		name: user?.name ?? "",
-		email: user?.email ?? "",
-		location: "Lagos, NG",
-		yearsOfExperience: buildParsedResume(user).yearsOfExperience,
-		preferences: "Remote and hybrid roles; clear updates within one week",
-		salaryExpectation: "USD 90k - 130k",
-	}));
-	const [parsedResume, setParsedResume] = useState(() =>
-		buildParsedResume(user),
-	);
-	const skills = csvToList(parsedResume.skills);
+	const [isParsing, setIsParsing] = useState(false);
+	const [parseError, setParseError] = useState(null);
+	const fileRef = useRef(null);
+
+	const [profile, setProfile] = useState(() => buildProfile(user));
+	const [resumeData, setResumeData] = useState(() => buildResumeData(user));
 
 	function updateProfile(field, value) {
-		setProfile((current) => ({ ...current, [field]: value }));
+		setProfile((p) => ({ ...p, [field]: value }));
 	}
 
-	function updateParsedResume(field, value) {
-		setParsedResume((current) => ({ ...current, [field]: value }));
+	function updateResume(field, value) {
+		setResumeData((r) => ({ ...r, [field]: value }));
 	}
 
-	function saveProfile() {
-		setEditing(false);
+	function updateExperience(id, field, value) {
+		setResumeData((r) => ({
+			...r,
+			jobExperience: r.jobExperience.map((e) =>
+				e.id === id ? { ...e, [field]: value } : e,
+			),
+		}));
+	}
+
+	function addExperience() {
+		setResumeData((r) => ({
+			...r,
+			jobExperience: [
+				...r.jobExperience,
+				{
+					id: crypto.randomUUID(),
+					companyName: "",
+					jobTitle: "",
+					startDate: "",
+					endDate: "",
+					experience: "<p></p>",
+				},
+			],
+		}));
+	}
+
+	function removeExperience(id) {
+		setResumeData((r) => ({
+			...r,
+			jobExperience: r.jobExperience.filter((e) => e.id !== id),
+		}));
+	}
+
+	async function handleUpload(e) {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		setIsParsing(true);
+		setParseError(null);
+		try {
+			const parsed = await parseResume(file);
+			setResumeData(parsed);
+			setTab("resume");
+		} catch {
+			setParseError("Could not parse the PDF. Please check the file and try again.");
+		} finally {
+			setIsParsing(false);
+			if (fileRef.current) fileRef.current.value = "";
+		}
 	}
 
 	return (
@@ -44,216 +109,336 @@ function Profile() {
 							{profile.name || "Your profile"}
 						</h1>
 						<p className="mt-2 text-sm text-slate-600">
-							{profile.email} · {profile.location}
+							{profile.email}
+							{profile.location ? ` · ${profile.location}` : ""}
 						</p>
 					</div>
-					<div className="flex gap-2">
-						{editing ? (
-							<Button onClick={saveProfile}>Save profile</Button>
-						) : null}
+
+					<div className="flex items-center gap-3">
+						{isParsing && (
+							<span className="flex items-center gap-1.5 text-sm text-slate-500">
+								<Spinner className="h-4 w-4" /> Parsing…
+							</span>
+						)}
 						<Button
 							variant="secondary"
-							onClick={() => setEditing((value) => !value)}
+							size="sm"
+							disabled={isParsing}
+							onClick={() => fileRef.current?.click()}
 						>
-							{editing ? "Cancel" : "Edit profile"}
+							{resumeData.jobExperience.length > 0
+								? "Re-upload resume"
+								: "Upload resume (PDF)"}
 						</Button>
+						<input
+							ref={fileRef}
+							type="file"
+							accept=".pdf"
+							onChange={handleUpload}
+							className="hidden"
+						/>
 					</div>
+				</div>
+
+				{parseError && (
+					<p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+						{parseError}
+					</p>
+				)}
+
+				<div className="mt-5 flex border-b border-slate-200">
+					{["profile", "resume"].map((t) => (
+						<button
+							key={t}
+							onClick={() => setTab(t)}
+							className={cn(
+								"px-4 py-2.5 text-sm font-medium capitalize transition-colors",
+								tab === t
+									? "border-b-2 border-slate-950 text-slate-950"
+									: "text-slate-500 hover:text-slate-700",
+							)}
+						>
+							{t}
+						</button>
+					))}
 				</div>
 			</section>
 
-			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-				<main className="space-y-5">
-					<Panel title="Resume">
-						<div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-							<p className="text-sm font-semibold text-slate-950">
-								{resumeFile?.name
-									? "New resume selected"
-									: user?.resumeUrl
-										? "Resume attached"
-										: "No resume attached"}
-							</p>
-							<p className="mt-1 text-sm text-slate-600">
-								{resumeFile?.name ??
-									user?.resumeUrl ??
-									"This prototype uses seeded profile data until you choose a file."}
-							</p>
+			{tab === "profile" && (
+				<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+					<main className="space-y-5">
+						<Panel
+							title="Basic details"
+							action={
+								editing ? (
+									<div className="flex gap-2">
+										<Button size="sm" onClick={() => setEditing(false)}>
+											Save
+										</Button>
+										<Button
+											size="sm"
+											variant="secondary"
+											onClick={() => setEditing(false)}
+										>
+											Cancel
+										</Button>
+									</div>
+								) : (
+									<Button
+										size="sm"
+										variant="secondary"
+										onClick={() => setEditing(true)}
+									>
+										Edit
+									</Button>
+								)
+							}
+						>
 							{editing ? (
-								<input
-									type="file"
-									accept=".pdf,.doc,.docx"
-									onChange={(e) =>
-										setResumeFile(e.target.files?.[0] ?? null)
-									}
-									className="mt-4 block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-800"
+								<div className="grid gap-3 sm:grid-cols-2">
+									<Field
+										label="Full name"
+										value={profile.name}
+										onChange={(v) => updateProfile("name", v)}
+									/>
+									<Field
+										label="Email"
+										value={profile.email}
+										onChange={(v) => updateProfile("email", v)}
+									/>
+									<Field
+										label="Location"
+										value={profile.location}
+										onChange={(v) => updateProfile("location", v)}
+									/>
+									<Field
+										label="Years of experience"
+										value={profile.yearsOfExperience}
+										onChange={(v) => updateProfile("yearsOfExperience", v)}
+									/>
+								</div>
+							) : (
+								<dl className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
+									<Detail label="Name" value={profile.name || "—"} />
+									<Detail label="Email" value={profile.email || "—"} />
+									<Detail label="Location" value={profile.location || "—"} />
+									<Detail
+										label="Experience"
+										value={
+											profile.yearsOfExperience
+												? `${profile.yearsOfExperience} years`
+												: "—"
+										}
+									/>
+								</dl>
+							)}
+						</Panel>
+					</main>
+
+					<aside className="space-y-5">
+						<Panel title="Preferences">
+							{editing ? (
+								<AreaField
+									label="Preferences"
+									value={profile.preferences}
+									onChange={(v) => updateProfile("preferences", v)}
 								/>
-							) : null}
+							) : (
+								<p className="text-sm leading-6 text-slate-700">
+									{profile.preferences || "—"}
+								</p>
+							)}
+						</Panel>
+
+						<Panel title="Salary expectation">
+							{editing ? (
+								<Field
+									label="Salary expectation"
+									value={profile.salaryExpectation}
+									onChange={(v) => updateProfile("salaryExpectation", v)}
+								/>
+							) : (
+								<p className="text-sm text-slate-700">
+									{profile.salaryExpectation || "—"}
+								</p>
+							)}
+						</Panel>
+					</aside>
+				</div>
+			)}
+
+			{tab === "resume" && (
+				<div className="space-y-5">
+					{resumeData.jobExperience.length === 0 &&
+						!resumeData.summary &&
+						resumeData.skills.length === 0 && (
+							<div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
+								<p className="text-sm font-medium text-slate-600">
+									No resume data yet
+								</p>
+								<p className="mt-1 text-sm text-slate-500">
+									Upload a PDF to auto-fill this section, or add details manually below.
+								</p>
+							</div>
+						)}
+
+					<Panel title="Contact info">
+						<div className="grid gap-3 sm:grid-cols-2">
+							<Field
+								label="Phone number"
+								value={resumeData.phoneNumber}
+								onChange={(v) => updateResume("phoneNumber", v)}
+							/>
+							<Field
+								label="Email"
+								value={resumeData.email}
+								onChange={(v) => updateResume("email", v)}
+							/>
+							<Field
+								label="LinkedIn URL"
+								value={resumeData.linkedIn}
+								onChange={(v) => updateResume("linkedIn", v)}
+								className="sm:col-span-2"
+							/>
 						</div>
 					</Panel>
 
-					<Panel title="Basic details">
-						{editing ? (
-							<div className="grid gap-3 sm:grid-cols-2">
-								<EditableField
-									label="Name"
-									value={profile.name}
-									onChange={(value) => updateProfile("name", value)}
-								/>
-								<EditableField
-									label="Email"
-									value={profile.email}
-									onChange={(value) => updateProfile("email", value)}
-								/>
-								<EditableField
-									label="Location"
-									value={profile.location}
-									onChange={(value) => updateProfile("location", value)}
-								/>
-								<EditableField
-									label="Years of experience"
-									value={String(profile.yearsOfExperience)}
-									onChange={(value) =>
-										updateProfile(
-											"yearsOfExperience",
-											Math.max(0, Number(value) || 0),
-										)
-									}
-								/>
-								<EditableField
-									label="Salary expectation"
-									value={profile.salaryExpectation}
-									onChange={(value) =>
-										updateProfile("salaryExpectation", value)
-									}
-								/>
-							</div>
-						) : (
-							<div className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-								<p>Name: {profile.name}</p>
-								<p>Email: {profile.email}</p>
-								<p>Location: {profile.location}</p>
-								<p>Experience: {profile.yearsOfExperience} years</p>
-								<p>Salary: {profile.salaryExpectation}</p>
-							</div>
-						)}
-					</Panel>
-
-					<Panel title="Work Experience">
-						{editing ? (
-							<EditableArea
-								label="Work experience"
-								value={parsedResume.workExperience}
-								onChange={(value) =>
-									updateParsedResume("workExperience", value)
-								}
-							/>
-						) : (
-							<p className="whitespace-pre-line text-sm leading-6 text-slate-700">
-								{parsedResume.workExperience}
-							</p>
-						)}
+					<Panel title="Summary">
+						<AreaField
+							label="Professional summary"
+							value={resumeData.summary}
+							onChange={(v) => updateResume("summary", v)}
+						/>
 					</Panel>
 
 					<Panel title="Skills">
-						{editing ? (
-							<EditableArea
-								label="Skills"
-								value={parsedResume.skills}
-								onChange={(value) => updateParsedResume("skills", value)}
-							/>
+						<p className="mb-2 text-xs text-slate-500">
+							Type a skill and press Enter or comma to add. Backspace removes the last tag.
+						</p>
+						<SkillTagEditor
+							skills={resumeData.skills}
+							onChange={(skills) => updateResume("skills", skills)}
+						/>
+					</Panel>
+
+					<Panel
+						title="Job experience"
+						action={
+							<Button size="sm" variant="secondary" onClick={addExperience}>
+								+ Add entry
+							</Button>
+						}
+					>
+						{resumeData.jobExperience.length === 0 ? (
+							<p className="text-sm text-slate-500">
+								No entries yet. Click "+ Add entry" or upload a resume.
+							</p>
 						) : (
-							<div className="flex flex-wrap gap-2">
-								{skills.map((skill) => (
-									<Badge
-										key={skill}
-										className="bg-slate-50 text-slate-700 ring-slate-200"
-									>
-										{skill}
-									</Badge>
+							<div className="space-y-6">
+								{resumeData.jobExperience.map((entry, idx) => (
+									<ExperienceEntry
+										key={entry.id}
+										entry={entry}
+										index={idx}
+										onChange={(field, value) =>
+											updateExperience(entry.id, field, value)
+										}
+										onRemove={() => removeExperience(entry.id)}
+									/>
 								))}
 							</div>
 						)}
 					</Panel>
 
-					<Panel title="Parsed resume">
-						<div className="space-y-4">
-							{editing ? (
-								<>
-									<EditableField
-										label="Years of experience"
-										value={String(parsedResume.yearsOfExperience)}
-										onChange={(value) =>
-											updateParsedResume(
-												"yearsOfExperience",
-												Math.max(0, Number(value) || 0),
-											)
-										}
-									/>
-									<EditableArea
-										label="Professional summary"
-										value={parsedResume.professionalSummary}
-										onChange={(value) =>
-											updateParsedResume(
-												"professionalSummary",
-												value,
-											)
-										}
-									/>
-								</>
-							) : (
-								<div className="space-y-3 text-sm text-slate-700">
-									<p className="font-medium text-slate-950">
-										Parsed resume snapshot
-									</p>
-									<p>
-										Years of experience:{" "}
-										{parsedResume.yearsOfExperience}
-									</p>
-									<p>{parsedResume.professionalSummary}</p>
-								</div>
-							)}
-						</div>
-					</Panel>
-				</main>
+					<div className="flex justify-end">
+						<Button>Save resume</Button>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
 
-				<aside className="space-y-5">
-					<Panel title="Preferences">
-						{editing ? (
-							<EditableArea
-								label="Preferences"
-								value={profile.preferences}
-								onChange={(value) => updateProfile("preferences", value)}
-							/>
-						) : (
-							<p className="text-sm leading-6 text-slate-700">
-								{profile.preferences}
-							</p>
-						)}
-					</Panel>
-					<Panel title="Salary expectations">
-						<p className="text-sm text-slate-700">
-							Based on profile: {profile.salaryExpectation}
-						</p>
-					</Panel>
-				</aside>
+function ExperienceEntry({ entry, index, onChange, onRemove }) {
+	return (
+		<div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-4">
+			<div className="flex items-center justify-between">
+				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+					Entry {index + 1}
+				</p>
+				<button
+					type="button"
+					onClick={onRemove}
+					className="text-xs text-rose-500 hover:text-rose-700"
+				>
+					Remove
+				</button>
+			</div>
+
+			<div className="grid gap-3 sm:grid-cols-2">
+				<Field
+					label="Company name"
+					value={entry.companyName}
+					onChange={(v) => onChange("companyName", v)}
+				/>
+				<Field
+					label="Job title"
+					value={entry.jobTitle}
+					onChange={(v) => onChange("jobTitle", v)}
+				/>
+				<Field
+					label="Start date"
+					placeholder="e.g. 2022-03"
+					value={entry.startDate}
+					onChange={(v) => onChange("startDate", v)}
+				/>
+				<Field
+					label="End date"
+					placeholder="e.g. 2024-01 or Present"
+					value={entry.endDate}
+					onChange={(v) => onChange("endDate", v)}
+				/>
+			</div>
+
+			<div>
+				<p className="mb-1.5 text-sm font-medium text-slate-800">Description</p>
+				<RichTextEditor
+					value={entry.experience}
+					onChange={(v) => onChange("experience", v)}
+					placeholder="Describe your responsibilities and achievements…"
+				/>
 			</div>
 		</div>
 	);
 }
 
-function EditableField({ label, value, onChange }) {
+function Panel({ title, action, children }) {
 	return (
-		<label className="block">
+		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+			<div className="flex items-center justify-between">
+				<h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+				{action}
+			</div>
+			<div className="mt-4">{children}</div>
+		</section>
+	);
+}
+
+function Field({ label, value, onChange, placeholder, className }) {
+	return (
+		<label className={cn("block", className)}>
 			<span className="text-sm font-medium text-slate-800">{label}</span>
 			<input
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
+				placeholder={placeholder}
 				className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200"
 			/>
 		</label>
 	);
 }
 
-function EditableArea({ label, value, onChange }) {
+function AreaField({ label, value, onChange }) {
 	return (
 		<label className="block">
 			<span className="text-sm font-medium text-slate-800">{label}</span>
@@ -267,12 +452,11 @@ function EditableArea({ label, value, onChange }) {
 	);
 }
 
-function Panel({ title, children }) {
+function Detail({ label, value }) {
 	return (
-		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-			<h2 className="text-lg font-semibold text-slate-950">{title}</h2>
-			<div className="mt-4">{children}</div>
-		</section>
+		<p>
+			<span className="font-medium text-slate-950">{label}:</span> {value}
+		</p>
 	);
 }
 

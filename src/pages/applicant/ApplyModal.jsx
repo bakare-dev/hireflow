@@ -3,8 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import Button from "../../components/common/Button";
 import Modal from "../../components/common/Modal";
 import MatchPercentBar from "../../components/domain/MatchPercentBar";
+import useToast from "../../hooks/useToast";
 import { applyToJob } from "../../store/slices/applicationsSlice";
-import { showToast } from "../../store/slices/uiSlice";
 import { selectAuthUser } from "../../store/slices/authSlice";
 import {
 	buildParsedResume,
@@ -16,6 +16,7 @@ import {
 
 function ApplyModal({ job, open, onClose, existingApplication }) {
 	const dispatch = useDispatch();
+	const toast = useToast();
 	const user = useSelector(selectAuthUser);
 	const [step, setStep] = useState(0);
 	const [parsedResume, setParsedResume] = useState(() =>
@@ -51,21 +52,11 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 		setSubmitting(false);
 
 		if (applyToJob.fulfilled.match(action)) {
-			dispatch(
-				showToast({
-					message: "Application submitted. We will keep the status clear.",
-					tone: "success",
-				}),
-			);
+			toast.success("Application submitted. We will keep the status clear.");
 			close();
 		} else {
-			dispatch(
-				showToast({
-					message:
-						action.payload?.message ??
-						"We could not submit this application.",
-					tone: "error",
-				}),
+			toast.error(
+				action.payload?.message ?? "We could not submit this application.",
 			);
 		}
 	}

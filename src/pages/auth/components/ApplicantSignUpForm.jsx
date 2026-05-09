@@ -2,14 +2,16 @@ import { useState } from "react";
 import Input from "../../../components/common/Input";
 import Button from "../../../components/common/Button";
 
-function ApplicantSignUpForm({ initial, onSubmit, onBack }) {
-	const [name, setName] = useState(initial?.name ?? "");
+function ApplicantSignUpForm({
+	initial,
+	onSubmit,
+	onBack,
+	submitting = false,
+}) {
+	const [firstName, setFirstName] = useState(initial?.firstName ?? "");
+	const [lastName, setLastName] = useState(initial?.lastName ?? "");
 	const [email, setEmail] = useState(initial?.email ?? "");
 	const [password, setPassword] = useState(initial?.password ?? "");
-	const [location, setLocation] = useState(initial?.location ?? "");
-	const [skillsRaw, setSkillsRaw] = useState(
-		(initial?.skills ?? []).join(", "),
-	);
 	const [error, setError] = useState(null);
 
 	function handleSubmit(e) {
@@ -18,22 +20,26 @@ function ApplicantSignUpForm({ initial, onSubmit, onBack }) {
 			setError("Password must be at least 8 characters.");
 			return;
 		}
-		const skills = skillsRaw
-			.split(",")
-			.map((s) => s.trim())
-			.filter(Boolean);
-		onSubmit({ name, email, password, location, skills });
+		onSubmit({ firstName, lastName, email, password, role: "APPLICANT" });
 	}
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
 			<Input
-				label="Full name"
+				label="First name"
 				required
-				value={name}
-				onChange={(e) => setName(e.target.value)}
-				placeholder="Ada Lovelace"
-				autoComplete="name"
+				value={firstName}
+				onChange={(e) => setFirstName(e.target.value)}
+				placeholder="Ada"
+				autoComplete="given-name"
+			/>
+			<Input
+				label="Last name"
+				required
+				value={lastName}
+				onChange={(e) => setLastName(e.target.value)}
+				placeholder="Lovelace"
+				autoComplete="family-name"
 			/>
 			<Input
 				label="Email"
@@ -54,19 +60,6 @@ function ApplicantSignUpForm({ initial, onSubmit, onBack }) {
 				autoComplete="new-password"
 				hint="At least 8 characters."
 			/>
-			<Input
-				label="Location"
-				value={location}
-				onChange={(e) => setLocation(e.target.value)}
-				placeholder="Lagos, NG"
-			/>
-			<Input
-				label="Skills"
-				value={skillsRaw}
-				onChange={(e) => setSkillsRaw(e.target.value)}
-				placeholder="React, TypeScript, Tailwind"
-				hint="Comma-separated. We'll use these to match you to roles."
-			/>
 
 			{error ? (
 				<p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
@@ -78,8 +71,8 @@ function ApplicantSignUpForm({ initial, onSubmit, onBack }) {
 				<Button type="button" variant="ghost" onClick={onBack}>
 					Back
 				</Button>
-				<Button type="submit" className="flex-1">
-					Continue
+				<Button type="submit" className="flex-1" disabled={submitting}>
+					{submitting ? "Creating account..." : "Continue"}
 				</Button>
 			</div>
 		</form>

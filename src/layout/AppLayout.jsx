@@ -1,14 +1,24 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { cn } from "../utils/classnames";
 
 function AppLayout({ navItems, title }) {
+	const [sidebarOpen, setSidebarOpen] = useState(false);
+
 	return (
 		<div className="flex min-h-screen bg-slate-50">
-			<Sidebar items={navItems} />
+			<Sidebar
+				items={navItems}
+				open={sidebarOpen}
+				onClose={() => setSidebarOpen(false)}
+			/>
 			<div className="flex min-w-0 flex-1 flex-col">
-				<Topbar title={title} />
+				<Topbar
+					title={title}
+					onMenuClick={() => setSidebarOpen((v) => !v)}
+				/>
 				<main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">
 					<Outlet />
 				</main>

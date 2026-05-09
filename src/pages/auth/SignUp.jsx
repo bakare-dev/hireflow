@@ -1,14 +1,20 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useDispatch } from "react-redux";
-import { signUpApplicant, signUpRecruiter } from "../../store/slices/authSlice";
-import { authService } from "../../services";
+import {
+	useRegisterMutation,
+	useVerifyOtpMutation,
+	useLoginMutation,
+} from "../../api/authApi";
+import { useCreateCompanyMutation } from "../../api/companiesApi";
 import { ROUTES } from "../../constants/routes";
-import { ROLE_HOME_PATHS } from "../../constants/roles";
+import useToast from "../../hooks/useToast";
+import { toRegistrationPayload } from "../../utils/api";
+import { apiHandler } from "../../services/api";
 import AuthHeader from "./components/AuthHeader";
 import SignUpRoleChoice from "./components/SignUpRoleChoice";
 import ApplicantSignUpForm from "./components/ApplicantSignUpForm";
 import RecruiterSignUpForm from "./components/RecruiterSignUpForm";
+import CompanyDetailsForm from "./components/CompanyDetailsForm";
 import OtpInput from "./components/OtpInput";
 import Button from "../../components/common/Button";
 
@@ -16,6 +22,7 @@ const STEP = Object.freeze({
 	ROLE: "ROLE",
 	FORM: "FORM",
 	OTP: "OTP",
+	COMPANY: "COMPANY",
 });
 
 const ROLE = Object.freeze({
@@ -24,8 +31,13 @@ const ROLE = Object.freeze({
 });
 
 function SignUp() {
-	const dispatch = useDispatch();
 	const navigate = useNavigate();
+	const toast = useToast();
+	const [register, { isLoading: registering }] = useRegisterMutation();
+	const [verifyOtp, { isLoading: verifying }] = useVerifyOtpMutation();
+	const [login, { isLoading: loggingIn }] = useLoginMutation();
+	const [createCompany, { isLoading: creatingCompany }] =
+		useCreateCompanyMutation();
 
 	const [step, setStep] = useState(STEP.ROLE);
 	const [role, setRole] = useState(null);
@@ -33,7 +45,6 @@ function SignUp() {
 
 	const [otp, setOtp] = useState("");
 	const [otpError, setOtpError] = useState(null);
-	const [submitting, setSubmitting] = useState(false);
 
 	function pickRole(next) {
 		setRole(next);
@@ -41,36 +52,81 @@ function SignUp() {
 	}
 
 	async function handleFormSubmit(data) {
-		setFormData(data);
-		await authService.requestOtp(data.email);
-		setStep(STEP.OTP);
+		try {
+			const response = await register(
+				toRegistrationPayload(data, role),
+			).unwrap();
+			setFormData(data);
+			setOtp("");
+			setOtpError(null);
+			toast.success(
+				response?.message ??
+					"Registration successful. Check your email for the OTP.",
+			);
+			setStep(STEP.OTP);
+		} catch (err) {
+			toast.error(
+				err.data?.message ?? err.error ?? "Registration failed.",
+			);
+		}
 	}
 
 	async function handleVerify(e) {
 		e.preventDefault();
 		setOtpError(null);
-		setSubmitting(true);
 		try {
-			await authService.verifyOtp(formData.email, otp);
-			const action =
-				role === ROLE.APPLICANT
-					? await dispatch(signUpApplicant(formData))
-					: await dispatch(signUpRecruiter(formData));
+			const response = await verifyOtp({
+				email: formData.email,
+				otp,
+			}).unwrap();
+			toast.success(response?.message ?? "Email verified successfully.");
 
-			if (
-				signUpApplicant.fulfilled.match(action) ||
-				signUpRecruiter.fulfilled.match(action)
-			) {
-				const next =
-					ROLE_HOME_PATHS[action.payload.role] ?? ROUTES.LANDING;
-				navigate(next);
-				return;
+			try {
+				await login({
+					email: formData.email,
+					password: formData.password,
+				}).unwrap();
+				if (role === ROLE.APPLICANT) {
+					navigate(ROUTES.APPLICANT.JOBS);
+					return;
+				}
+
+				if (role === ROLE.RECRUITER) {
+					try {
+						const company = await apiHandler.get("/companies/me");
+						if (company) {
+							navigate(ROUTES.DASHBOARD);
+						} else {
+							setStep(STEP.COMPANY);
+						}
+					} catch {
+						setStep(STEP.COMPANY);
+					}
+				}
+			} catch (loginErr) {
+				toast.error(
+					loginErr.data?.message ??
+						loginErr.error ??
+						"Login failed after registration.",
+				);
+				navigate(ROUTES.SIGN_IN);
 			}
-			setOtpError(action.payload?.message ?? "Sign up failed.");
 		} catch (err) {
-			setOtpError(err.message);
-		} finally {
-			setSubmitting(false);
+			setOtpError(
+				err.data?.message ?? err.error ?? "OTP verification failed.",
+			);
+		}
+	}
+
+	async function handleCompanySubmit(companyData) {
+		try {
+			await createCompany(companyData).unwrap();
+			toast.success("Company created successfully!");
+			navigate(ROUTES.DASHBOARD);
+		} catch (err) {
+			toast.error(
+				err.data?.message ?? err.error ?? "Company creation failed.",
+			);
 		}
 	}
 
@@ -108,12 +164,12 @@ function SignUp() {
 					title={
 						role === ROLE.APPLICANT
 							? "Tell us about you"
-							: "Onboard you and your company"
+							: "Tell us about you"
 					}
 					subtitle={
 						role === ROLE.APPLICANT
 							? "We'll use this to match you to roles and pre-fill applications."
-							: "You'll be set up as the company's admin. Invite hiring managers later."
+							: "You'll be set up as the company admin. Add your company details after verifying your email."
 					}
 				/>
 				{role === ROLE.APPLICANT ? (
@@ -121,14 +177,32 @@ function SignUp() {
 						initial={formData}
 						onSubmit={handleFormSubmit}
 						onBack={() => setStep(STEP.ROLE)}
+						submitting={registering}
 					/>
 				) : (
 					<RecruiterSignUpForm
 						initial={formData}
 						onSubmit={handleFormSubmit}
 						onBack={() => setStep(STEP.ROLE)}
+						submitting={registering}
 					/>
 				)}
+			</div>
+		);
+	}
+
+	if (step === STEP.COMPANY) {
+		return (
+			<div className="space-y-8">
+				<AuthHeader
+					eyebrow="Complete your profile"
+					title="Tell us about your company"
+					subtitle="This helps us set up your recruitment workspace. You can edit these details later."
+				/>
+				<CompanyDetailsForm
+					onSubmit={handleCompanySubmit}
+					submitting={creatingCompany}
+				/>
 			</div>
 		);
 	}
@@ -152,8 +226,16 @@ function SignUp() {
 			<form onSubmit={handleVerify} className="space-y-6">
 				<OtpInput value={otp} onChange={setOtp} error={otpError} />
 
-				<Button type="submit" className="w-full" disabled={submitting}>
-					{submitting ? "Verifying…" : "Verify and continue"}
+				<Button
+					type="submit"
+					className="w-full"
+					disabled={verifying || loggingIn}
+				>
+					{verifying
+						? "Verifying…"
+						: loggingIn
+							? "Logging in…"
+							: "Verify and continue"}
 				</Button>
 			</form>
 
@@ -170,17 +252,27 @@ function SignUp() {
 					onClick={async () => {
 						setOtp("");
 						setOtpError(null);
-						await authService.requestOtp(formData.email);
+						try {
+							const response = await register(
+								toRegistrationPayload(formData, role),
+							).unwrap();
+							toast.success(
+								response?.message ??
+									"We sent a fresh OTP to your email.",
+							);
+						} catch (err) {
+							toast.error(
+								err.data?.message ??
+									err.error ??
+									"Unable to resend OTP.",
+							);
+						}
 					}}
 					className="font-medium text-slate-900 hover:underline"
 				>
 					Resend code
 				</button>
 			</div>
-
-			<p className="text-center text-xs text-slate-400">
-				Prototype: any 6-digit code is accepted.
-			</p>
 		</div>
 	);
 }

@@ -11,6 +11,7 @@ const NAV_ITEMS = [
 	{ label: "Messages", to: ROUTES.APPLICANT_MESSAGES },
 	{ label: "Interviews", to: ROUTES.APPLICANT_INTERVIEWS },
 	{ label: "Profile", to: ROUTES.APPLICANT_PROFILE },
+	{ label: "Company Reviews", to: ROUTES.APPLICANT_COMPANY_REVIEWS },
 ];
 
 function ApplicantLayout() {

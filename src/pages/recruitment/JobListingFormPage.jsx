@@ -1,25 +1,53 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import Button from "../../components/common/Button";
 import Card, { CardBody, CardHeader } from "../../components/common/Card";
 import Input from "../../components/common/Input";
 import PageHeader from "../../components/common/PageHeader";
-import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from "../../constants/employment";
+import SkillSelector from "../../components/common/SkillSelector";
 import { ROUTES } from "../../constants/routes";
 import { selectAuthUser } from "../../store/slices/authSlice";
-import { createJob, selectJobById, updateJob } from "../../store/slices/jobsSlice";
+import {
+	useCreateJobMutation,
+	useUpdateJobMutation,
+	useGetJobQuery,
+} from "../../api/jobsApi";
 import useToast from "../../hooks/useToast";
+import RichTextEditor from "../../components/editor/RichTextEditor";
+
+const JOB_TYPES = [
+	["FULL_TIME", "Full Time"],
+	["PART_TIME", "Part Time"],
+	["CONTRACT", "Contract"],
+	["INTERNSHIP", "Internship"],
+	["REMOTE", "Remote"],
+];
+
+const JOB_STATUSES = [
+	["DRAFT", "Draft"],
+	["OPEN", "Open"],
+	["PAUSED", "Paused"],
+	["CLOSED", "Closed"],
+	["FILLED", "Filled"],
+];
 
 function JobListingFormPage() {
 	const { id } = useParams();
 	const isEdit = Boolean(id);
-	const dispatch = useDispatch();
 	const navigate = useNavigate();
 	const toast = useToast();
 	const user = useSelector(selectAuthUser);
-	const existingJob = useSelector(selectJobById(id ?? ""));
-	const [saving, setSaving] = useState(false);
+
+	const { data: existingJob, isLoading: isLoadingJob } = useGetJobQuery(
+		id ?? "",
+		{
+			skip: !isEdit,
+		},
+	);
+	const [createJob, { isLoading: isCreating }] = useCreateJobMutation();
+	const [updateJob, { isLoading: isUpdating }] = useUpdateJobMutation();
+
 	const [form, setForm] = useState(() => initForm(existingJob));
 
 	const title = useMemo(
@@ -31,55 +59,50 @@ function JobListingFormPage() {
 		setForm((current) => ({ ...current, [field]: value }));
 	}
 
-	if (isEdit && !existingJob) {
+	if (isEdit && isLoadingJob) {
 		return (
 			<div className="space-y-4">
-				<PageHeader title="Update Job Listing" description="Loading listing details..." />
+				<PageHeader
+					title="Update Job Listing"
+					description="Loading listing details..."
+				/>
 			</div>
 		);
 	}
 
 	async function handleSubmit(event) {
 		event.preventDefault();
-		if (!user) return;
-		setSaving(true);
-		const payload = {
-			title: form.title.trim(),
-			location: form.location.trim(),
-			workMode: form.workMode,
-			employmentType: form.employmentType,
-			description: form.description.trim(),
-			requiredSkills: parseCsv(form.requiredSkills),
-			niceToHaveSkills: parseCsv(form.niceToHaveSkills),
-			salary: {
-				min: Number(form.salaryMin) || 0,
-				max: Number(form.salaryMax) || 0,
-				currency: form.salaryCurrency.trim() || "USD",
-			},
-			companyId: user.companyId,
-			hiringManagerId: user.id,
-			status: form.status,
-		};
-
-		if (isEdit && id) {
-			const action = await dispatch(updateJob({ id, patch: payload }));
-			setSaving(false);
-			if (updateJob.fulfilled.match(action)) {
-				toast.success("Job listing updated.");
-				navigate(ROUTES.JOB_LISTINGS);
-			} else {
-				toast.error(action.error?.message ?? "Unable to update listing.");
-			}
+		if (!user) {
+			toast.error("User not authenticated");
 			return;
 		}
 
-		const action = await dispatch(createJob(payload));
-		setSaving(false);
-		if (createJob.fulfilled.match(action)) {
-			toast.success("Job listing created.");
-			navigate(ROUTES.JOB_LISTINGS);
-		} else {
-			toast.error(action.error?.message ?? "Unable to create listing.");
+		const payload = {
+			title: form.title.trim(),
+			type: form.type,
+			location: form.location.trim(),
+			summary: form.summary,
+			responsibilities: form.responsibilities,
+			requiredQualifications: form.requiredQualifications,
+			preferredQualifications: form.preferredQualifications,
+			status: form.status,
+			autoRejectThreshold: Number(form.autoRejectThreshold),
+			autoPassThreshold: Number(form.autoPassThreshold),
+			skillIds: form.skills.map((s) => s.id),
+		};
+
+		try {
+			if (isEdit && id) {
+				await updateJob({ id, patch: payload }).unwrap();
+				toast.success("Job listing updated.");
+				navigate(ROUTES.JOB_LISTINGS);
+			} else {
+				await createJob(payload).unwrap();
+				toast.success("Job listing created.");
+				navigate(ROUTES.JOB_LISTINGS);
+			}
+		} catch (err) {
+			toast.error(err?.message ?? "Unable to save job listing");
 		}
 	}
 
@@ -88,37 +111,72 @@ function JobListingFormPage() {
 			<PageHeader
 				eyebrow="Jobs"
 				title={title}
-				description="Create or update listing details, workflow readiness, and compensation ranges."
+				description="Create or update listing details with job description, qualifications, and screening thresholds."
 			/>
 			<form onSubmit={handleSubmit} className="space-y-5">
 				<Card>
 					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">Basic Info</h2>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Basic Info
+						</h2>
 					</CardHeader>
 					<CardBody className="grid gap-4 md:grid-cols-2">
-						<Input label="Title" value={form.title} onChange={(e) => setField("title", e.target.value)} required />
-						<Input label="Location" value={form.location} onChange={(e) => setField("location", e.target.value)} required />
-						<SelectField
-							label="Work mode"
-							value={form.workMode}
-							options={Object.entries(WORK_MODE_LABELS)}
-							onChange={(value) => setField("workMode", value)}
+						<Input
+							label="Title"
+							value={form.title}
+							onChange={(e) => setField("title", e.target.value)}
+							required
 						/>
 						<SelectField
-							label="Employment type"
-							value={form.employmentType}
-							options={Object.entries(EMPLOYMENT_TYPE_LABELS)}
-							onChange={(value) => setField("employmentType", value)}
+							label="Job Type"
+							value={form.type}
+							options={JOB_TYPES}
+							onChange={(value) => setField("type", value)}
+							required
 						/>
-						<div className="md:col-span-2">
+						<Input
+							label="Location"
+							value={form.location}
+							onChange={(e) =>
+								setField("location", e.target.value)
+							}
+							required
+						/>
+					</CardBody>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Job Description
+						</h2>
+					</CardHeader>
+					<CardBody className="space-y-4">
+						<div>
 							<label className="block">
-								<span className="mb-1 block text-sm font-medium text-slate-800">Description</span>
-								<textarea
-									rows={5}
-									value={form.description}
-									onChange={(e) => setField("description", e.target.value)}
-									className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-									required
+								<span className="mb-2 block text-sm font-medium text-slate-800">
+									Summary
+								</span>
+								<RichTextEditor
+									value={form.summary}
+									onChange={(value) =>
+										setField("summary", value)
+									}
+									placeholder="Brief overview of the position..."
+								/>
+							</label>
+						</div>
+						<div>
+							<label className="block">
+								<span className="mb-2 block text-sm font-medium text-slate-800">
+									Responsibilities
+								</span>
+								<RichTextEditor
+									value={form.responsibilities}
+									onChange={(value) =>
+										setField("responsibilities", value)
+									}
+									placeholder="Key responsibilities and day-to-day tasks..."
 								/>
 							</label>
 						</div>
@@ -127,58 +185,124 @@ function JobListingFormPage() {
 
 				<Card>
 					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">Requirements</h2>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Qualifications
+						</h2>
 					</CardHeader>
-					<CardBody className="grid gap-4">
-						<Input
-							label="Required skills (comma separated)"
-							value={form.requiredSkills}
-							onChange={(e) => setField("requiredSkills", e.target.value)}
-						/>
-						<Input
-							label="Nice-to-have skills (comma separated)"
-							value={form.niceToHaveSkills}
-							onChange={(e) => setField("niceToHaveSkills", e.target.value)}
+					<CardBody className="space-y-4">
+						<div>
+							<label className="block">
+								<span className="mb-2 block text-sm font-medium text-slate-800">
+									Required Qualifications
+								</span>
+								<RichTextEditor
+									value={form.requiredQualifications}
+									onChange={(value) =>
+										setField(
+											"requiredQualifications",
+											value,
+										)
+									}
+									placeholder="Required skills, experience, and education..."
+								/>
+							</label>
+						</div>
+						<div>
+							<label className="block">
+								<span className="mb-2 block text-sm font-medium text-slate-800">
+									Preferred Qualifications
+								</span>
+								<RichTextEditor
+									value={form.preferredQualifications}
+									onChange={(value) =>
+										setField(
+											"preferredQualifications",
+											value,
+										)
+									}
+									placeholder="Nice-to-have skills and experience..."
+								/>
+							</label>
+						</div>
+					</CardBody>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Skills
+						</h2>
+					</CardHeader>
+					<CardBody>
+						<SkillSelector
+							selectedSkills={form.skills}
+							onChange={(skills) => setField("skills", skills)}
+							label="Required Skills"
 						/>
 					</CardBody>
 				</Card>
 
 				<Card>
 					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">Compensation</h2>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Screening Thresholds
+						</h2>
 					</CardHeader>
-					<CardBody className="grid gap-4 md:grid-cols-3">
-						<Input label="Min salary" value={form.salaryMin} onChange={(e) => setField("salaryMin", e.target.value)} />
-						<Input label="Max salary" value={form.salaryMax} onChange={(e) => setField("salaryMax", e.target.value)} />
-						<Input label="Currency" value={form.salaryCurrency} onChange={(e) => setField("salaryCurrency", e.target.value)} />
+					<CardBody className="grid gap-4 md:grid-cols-2">
+						<Input
+							label="Auto-Reject Threshold (%)"
+							type="number"
+							min={0}
+							max={100}
+							value={form.autoRejectThreshold}
+							onChange={(e) =>
+								setField("autoRejectThreshold", e.target.value)
+							}
+							required
+						/>
+						<Input
+							label="Auto-Pass Threshold (%)"
+							type="number"
+							min={0}
+							max={100}
+							value={form.autoPassThreshold}
+							onChange={(e) =>
+								setField("autoPassThreshold", e.target.value)
+							}
+							required
+						/>
 					</CardBody>
 				</Card>
 
 				<Card>
 					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">Publishing</h2>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Publishing
+						</h2>
 					</CardHeader>
 					<CardBody>
 						<SelectField
-							label="Listing status"
+							label="Listing Status"
 							value={form.status}
-							options={[
-								["DRAFT", "Draft"],
-								["OPEN", "Open"],
-								["PAUSED", "Paused"],
-								["CLOSED", "Closed"],
-							]}
+							options={JOB_STATUSES}
 							onChange={(value) => setField("status", value)}
+							required
 						/>
 					</CardBody>
 				</Card>
 
 				<div className="flex items-center gap-2">
-					<Button type="submit" disabled={saving}>
-						{saving ? "Saving..." : isEdit ? "Update listing" : "Create listing"}
+					<Button type="submit" disabled={isCreating || isUpdating}>
+						{isCreating || isUpdating
+							? "Saving..."
+							: isEdit
+								? "Update listing"
+								: "Create listing"}
 					</Button>
 					<Link to={ROUTES.JOB_LISTINGS}>
-						<Button type="button" variant="secondary">Cancel</Button>
+						<Button type="button" variant="secondary">
+							Cancel
+						</Button>
 					</Link>
 				</div>
 			</form>
@@ -186,15 +310,20 @@ function JobListingFormPage() {
 	);
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, required = false }) {
 	return (
 		<label className="block">
-			<span className="mb-1 block text-sm font-medium text-slate-800">{label}</span>
+			<span className="mb-1 block text-sm font-medium text-slate-800">
+				{label}
+				{required && <span className="text-red-500">*</span>}
+			</span>
 			<select
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+				required={required}
 			>
+				<option value="">Select {label.toLowerCase()}</option>
 				{options.map(([optionValue, optionLabel]) => (
 					<option key={optionValue} value={optionValue}>
 						{optionLabel}
@@ -205,25 +334,18 @@ function SelectField({ label, value, onChange, options }) {
 	);
 }
 
-function parseCsv(value) {
-	return value
-		.split(",")
-		.map((item) => item.trim())
-		.filter(Boolean);
-}
-
 function defaultForm() {
 	return {
 		title: "",
+		type: "FULL_TIME",
 		location: "",
-		workMode: "REMOTE",
-		employmentType: "FULL_TIME",
-		description: "",
-		requiredSkills: "",
-		niceToHaveSkills: "",
-		salaryMin: "",
-		salaryMax: "",
-		salaryCurrency: "USD",
+		summary: "<p></p>",
+		responsibilities: "<p></p>",
+		requiredQualifications: "<p></p>",
+		preferredQualifications: "<p></p>",
+		skills: [],
+		autoRejectThreshold: "40",
+		autoPassThreshold: "75",
 		status: "DRAFT",
 	};
 }
@@ -232,15 +354,15 @@ function initForm(job) {
 	if (!job) return defaultForm();
 	return {
 		title: job.title ?? "",
+		type: job.type ?? "FULL_TIME",
 		location: job.location ?? "",
-		workMode: job.workMode ?? "REMOTE",
-		employmentType: job.employmentType ?? "FULL_TIME",
-		description: job.description ?? "",
-		requiredSkills: (job.requiredSkills ?? []).join(", "),
-		niceToHaveSkills: (job.niceToHaveSkills ?? []).join(", "),
-		salaryMin: String(job.salary?.min ?? ""),
-		salaryMax: String(job.salary?.max ?? ""),
-		salaryCurrency: job.salary?.currency ?? "USD",
+		summary: job.summary ?? "<p></p>",
+		responsibilities: job.responsibilities ?? "<p></p>",
+		requiredQualifications: job.requiredQualifications ?? "<p></p>",
+		preferredQualifications: job.preferredQualifications ?? "<p></p>",
+		skills: job.skills ?? [],
+		autoRejectThreshold: String(job.autoRejectThreshold ?? "40"),
+		autoPassThreshold: String(job.autoPassThreshold ?? "75"),
 		status: job.status ?? "DRAFT",
 	};
 }

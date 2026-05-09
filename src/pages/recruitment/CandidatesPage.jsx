@@ -24,7 +24,7 @@ import {
 	roleScopedJobs,
 	stageEta,
 	stageUpdatesByApplicationId,
-} from "./recruitmentUtils";
+} from "../../utils/recruitmentUtils";
 
 const STAGE_OPTIONS = [
 	PIPELINE_STAGES.APPLIED,
@@ -54,7 +54,12 @@ function CandidatesPage() {
 	const aiMap = aiByApplicationId();
 	const updatesMap = stageUpdatesByApplicationId();
 	const scopedJobs = roleScopedJobs(jobs, role, user);
-	const scopedApps = roleScopedApplications(applications, scopedJobs, role, user);
+	const scopedApps = roleScopedApplications(
+		applications,
+		scopedJobs,
+		role,
+		user,
+	);
 	const jobsById = useMemo(
 		() => new Map(scopedJobs.map((job) => [job.id, job])),
 		[scopedJobs],
@@ -71,15 +76,19 @@ function CandidatesPage() {
 			const person = users.get(app.applicantId);
 			const q = `${person?.name ?? ""} ${job?.title ?? ""}`.toLowerCase();
 			const queryPass = q.includes(query.toLowerCase());
-			const stagePass = stageFilter === "ALL" || app.currentStage === stageFilter;
+			const stagePass =
+				stageFilter === "ALL" || app.currentStage === stageFilter;
 			return queryPass && stagePass;
 		});
 	}, [scopedApps, jobsById, users, query, stageFilter]);
 
 	const activeApp = filtered.find((item) => item.id === activeId) ?? null;
-	const selectedApps = filtered.filter((item) => selectedIds.includes(item.id));
+	const selectedApps = filtered.filter((item) =>
+		selectedIds.includes(item.id),
+	);
 	const allVisibleSelected =
-		filtered.length > 0 && filtered.every((item) => selectedIds.includes(item.id));
+		filtered.length > 0 &&
+		filtered.every((item) => selectedIds.includes(item.id));
 
 	function toggleSelection(id) {
 		setSelectedIds((current) =>
@@ -114,10 +123,14 @@ function CandidatesPage() {
 						placeholder="Candidate or role"
 					/>
 					<label className="space-y-1">
-						<span className="text-sm font-medium text-slate-800">Stage</span>
+						<span className="text-sm font-medium text-slate-800">
+							Stage
+						</span>
 						<select
 							value={stageFilter}
-							onChange={(event) => setStageFilter(event.target.value)}
+							onChange={(event) =>
+								setStageFilter(event.target.value)
+							}
 							className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
 						>
 							<option value="ALL">All stages</option>
@@ -129,13 +142,17 @@ function CandidatesPage() {
 						</select>
 					</label>
 					<div className="space-y-1">
-						<span className="text-sm font-medium text-slate-800">Saved views</span>
+						<span className="text-sm font-medium text-slate-800">
+							Saved views
+						</span>
 						<div className="flex h-10 items-center rounded-md border border-slate-200 px-3 text-sm text-slate-600">
 							Default Pipeline
 						</div>
 					</div>
 					<div className="space-y-1">
-						<span className="text-sm font-medium text-slate-800">Density</span>
+						<span className="text-sm font-medium text-slate-800">
+							Density
+						</span>
 						<div className="flex h-10 items-center rounded-md border border-slate-200 px-3 text-sm text-slate-600">
 							Comfortable
 						</div>
@@ -145,7 +162,9 @@ function CandidatesPage() {
 
 			<Card>
 				<CardHeader>
-					<h2 className="text-sm font-semibold text-slate-900">Candidates Table</h2>
+					<h2 className="text-sm font-semibold text-slate-900">
+						Candidates Table
+					</h2>
 				</CardHeader>
 				<div className="overflow-x-auto">
 					<table className="min-w-full text-sm">
@@ -156,7 +175,9 @@ function CandidatesPage() {
 										type="checkbox"
 										checked={allVisibleSelected}
 										onChange={() =>
-											allVisibleSelected ? clearSelection() : selectVisible()
+											allVisibleSelected
+												? clearSelection()
+												: selectVisible()
 										}
 									/>
 								</Th>
@@ -177,45 +198,66 @@ function CandidatesPage() {
 								const job = jobsById.get(app.jobListingId);
 								const ai = aiMap.get(app.id);
 								return (
-									<tr key={app.id} className="border-t border-slate-100">
+									<tr
+										key={app.id}
+										className="border-t border-slate-100"
+									>
 										<Td>
 											<input
 												type="checkbox"
-												checked={selectedIds.includes(app.id)}
-												onChange={() => toggleSelection(app.id)}
+												checked={selectedIds.includes(
+													app.id,
+												)}
+												onChange={() =>
+													toggleSelection(app.id)
+												}
 											/>
 										</Td>
 										<Td>
 											<p className="font-medium text-slate-900">
-												{person?.name ?? app.applicantId}
+												{person?.name ??
+													app.applicantId}
 											</p>
-											<p className="text-xs text-slate-500">{job?.title}</p>
+											<p className="text-xs text-slate-500">
+												{job?.title}
+											</p>
 										</Td>
 										<Td>{ai?.matchPercentage ?? "-"}</Td>
 										<Td>
-											<StageBadge stage={app.currentStage} />
+											<StageBadge
+												stage={app.currentStage}
+											/>
 										</Td>
-										<Td>{person?.skills?.length ?? "-"} yrs</Td>
+										<Td>
+											{person?.skills?.length ?? "-"} yrs
+										</Td>
 										<Td>
 											<div className="flex flex-wrap gap-1">
-												{(person?.skills ?? []).slice(0, 3).map((skill) => (
-													<Badge
-														key={skill}
-														className="bg-slate-100 text-slate-700 ring-slate-200"
-													>
-														{skill}
-													</Badge>
-												))}
+												{(person?.skills ?? [])
+													.slice(0, 3)
+													.map((skill) => (
+														<Badge
+															key={skill}
+															className="bg-slate-100 text-slate-700 ring-slate-200"
+														>
+															{skill}
+														</Badge>
+													))}
 											</div>
 										</Td>
-										<Td>{users.get(job?.hiringManagerId)?.name ?? "Owner"}</Td>
+										<Td>
+											{users.get(job?.hiringManagerId)
+												?.name ?? "Owner"}
+										</Td>
 										<Td>{stageEta(app.currentStage)}</Td>
 										<Td>{formatDate(app.appliedAt)}</Td>
 										<Td>
 											<Button
 												variant="secondary"
 												size="sm"
-												onClick={() => setActiveId(app.id)}
+												onClick={() =>
+													setActiveId(app.id)
+												}
 											>
 												Review
 											</Button>
@@ -235,10 +277,17 @@ function CandidatesPage() {
 							{selectedApps.length} candidates selected
 						</p>
 						<div className="flex flex-wrap gap-2">
-							<Button variant="secondary" size="sm" onClick={selectVisible}>
+							<Button
+								variant="secondary"
+								size="sm"
+								onClick={selectVisible}
+							>
 								Select filtered
 							</Button>
-							<Button size="sm" onClick={() => setMoveModalOpen(true)}>
+							<Button
+								size="sm"
+								onClick={() => setMoveModalOpen(true)}
+							>
 								Move stage
 							</Button>
 							<Button variant="secondary" size="sm">
@@ -250,7 +299,11 @@ function CandidatesPage() {
 							<Button variant="secondary" size="sm">
 								Add tags
 							</Button>
-							<Button variant="ghost" size="sm" onClick={clearSelection}>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={clearSelection}
+							>
 								Clear
 							</Button>
 						</div>
@@ -284,7 +337,9 @@ function CandidatesPage() {
 				staffOptions={staffOptions}
 				onSubmit={async ({ date, time, meetLink, interviewerId }) => {
 					if (!activeApp) return;
-					const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+					const scheduledAt = new Date(
+						`${date}T${time}:00`,
+					).toISOString();
 					const action = await dispatch(
 						createInterviewSlot({
 							applicationId: activeApp.id,
@@ -297,7 +352,10 @@ function CandidatesPage() {
 					if (createInterviewSlot.fulfilled.match(action)) {
 						toast.success("Interview scheduled successfully.");
 					} else {
-						toast.error(action.error?.message ?? "Unable to schedule interview.");
+						toast.error(
+							action.error?.message ??
+								"Unable to schedule interview.",
+						);
 					}
 				}}
 			/>
@@ -359,10 +417,14 @@ function CandidateSidePanel({
 							</h4>
 						</CardHeader>
 						<CardBody className="space-y-2 text-sm text-slate-700">
-							<p className="font-medium text-slate-900">{candidate?.name}</p>
+							<p className="font-medium text-slate-900">
+								{candidate?.name}
+							</p>
 							<p>{candidate?.email}</p>
 							<p>Role: {job?.title}</p>
-							<p>Resume: {candidate?.resumeUrl ?? "Unavailable"}</p>
+							<p>
+								Resume: {candidate?.resumeUrl ?? "Unavailable"}
+							</p>
 							<div className="flex flex-wrap gap-1">
 								{(candidate?.skills ?? []).map((skill) => (
 									<Badge
@@ -384,7 +446,9 @@ function CandidateSidePanel({
 						<CardBody className="space-y-2 text-sm text-slate-700">
 							<p>Match: {ai?.matchPercentage ?? "-"}%</p>
 							<p>
-								Missing skills: {(ai?.unmatchedSkills ?? []).join(", ") || "None"}
+								Missing skills:{" "}
+								{(ai?.unmatchedSkills ?? []).join(", ") ||
+									"None"}
 							</p>
 							<p className="text-xs text-slate-500">
 								{ai?.summaryNote ?? "No AI notes available"}
@@ -419,10 +483,18 @@ function CandidateSidePanel({
 								<Button size="sm" onClick={onScheduleInterview}>
 									Schedule interview
 								</Button>
-								<Button variant="secondary" size="sm" onClick={onRequestFeedback}>
+								<Button
+									variant="secondary"
+									size="sm"
+									onClick={onRequestFeedback}
+								>
 									Request feedback
 								</Button>
-								<Button variant="secondary" size="sm" onClick={onSendMail}>
+								<Button
+									variant="secondary"
+									size="sm"
+									onClick={onSendMail}
+								>
 									Send email
 								</Button>
 							</div>
@@ -494,7 +566,8 @@ function MoveStageModal({ open, onClose, selectedApps, staffOptions }) {
 					className="w-full rounded-md border border-slate-200 px-3 py-2"
 				/>
 				<div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
-					Validation warnings may apply for missing feedback or inactive candidates.
+					Validation warnings may apply for missing feedback or
+					inactive candidates.
 				</div>
 			</div>
 		</Modal>
@@ -512,7 +585,9 @@ function ScheduleInterviewModal({
 	const [date, setDate] = useState("");
 	const [time, setTime] = useState("");
 	const [note, setNote] = useState("");
-	const [interviewerId, setInterviewerId] = useState(staffOptions[0]?.id ?? "");
+	const [interviewerId, setInterviewerId] = useState(
+		staffOptions[0]?.id ?? "",
+	);
 
 	async function submit() {
 		if (!meetLink || !date || !time) return;
@@ -568,7 +643,9 @@ function ScheduleInterviewModal({
 					</label>
 					<select
 						value={interviewerId}
-						onChange={(event) => setInterviewerId(event.target.value)}
+						onChange={(event) =>
+							setInterviewerId(event.target.value)
+						}
 						className="h-10 w-full rounded-md border border-slate-200 px-3"
 					>
 						{staffOptions.map((staff) => (
@@ -579,7 +656,9 @@ function ScheduleInterviewModal({
 					</select>
 				</div>
 				<label className="block">
-					<span className="mb-1 block font-medium text-slate-800">Note</span>
+					<span className="mb-1 block font-medium text-slate-800">
+						Note
+					</span>
 					<textarea
 						rows={3}
 						value={note}

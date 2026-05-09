@@ -17,7 +17,7 @@ import {
 	getUserMap,
 	roleScopedApplications,
 	roleScopedJobs,
-} from "./recruitmentUtils";
+} from "../../utils/recruitmentUtils";
 
 function JobListingsPage() {
 	const role = useSelector(selectAuthRole);
@@ -37,7 +37,9 @@ function JobListingsPage() {
 		[applications, scopedJobs, role, user],
 	);
 	const filtered = scopedJobs.filter((job) =>
-		`${job.title} ${job.location}`.toLowerCase().includes(query.toLowerCase()),
+		`${job.title} ${job.location}`
+			.toLowerCase()
+			.includes(query.toLowerCase()),
 	);
 
 	return (
@@ -59,7 +61,9 @@ function JobListingsPage() {
 							Table
 						</Button>
 						<Button
-							variant={view === "compact" ? "primary" : "secondary"}
+							variant={
+								view === "compact" ? "primary" : "secondary"
+							}
 							size="sm"
 							onClick={() => setView("compact")}
 						>
@@ -83,7 +87,9 @@ function JobListingsPage() {
 			{view === "table" ? (
 				<Card>
 					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">All Listings</h2>
+						<h2 className="text-sm font-semibold text-slate-900">
+							All Listings
+						</h2>
 					</CardHeader>
 					<div className="overflow-x-auto">
 						<table className="min-w-full text-sm">
@@ -103,34 +109,62 @@ function JobListingsPage() {
 									const applicantCount = scopedApps.filter(
 										(app) => app.jobListingId === job.id,
 									).length;
-									const ai = avgAiMatchForJob(job.id, scopedApps);
+									const ai = avgAiMatchForJob(
+										job.id,
+										scopedApps,
+									);
 									return (
 										<tr
 											key={job.id}
 											className="border-t border-slate-100 text-slate-700"
 										>
 											<Td>
-												<p className="font-medium text-slate-900">{job.title}</p>
-												<p className="text-xs text-slate-500">{job.location}</p>
+												<p className="font-medium text-slate-900">
+													{job.title}
+												</p>
+												<p className="text-xs text-slate-500">
+													{job.location}
+												</p>
 											</Td>
-											<Td>{users.get(job.hiringManagerId)?.name ?? "Unassigned"}</Td>
+											<Td>
+												{users.get(job.hiringManagerId)
+													?.name ?? "Unassigned"}
+											</Td>
 											<Td>{applicantCount}</Td>
 											<Td>{ai || "-"}</Td>
 											<Td>
 												<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
-													{JOB_STATUS_LABELS[job.status]}
+													{
+														JOB_STATUS_LABELS[
+															job.status
+														]
+													}
 												</Badge>
 											</Td>
 											<Td>{formatDate(job.createdAt)}</Td>
 											<Td>
 												<div className="flex gap-2">
-													<Link to={ROUTES.JOB_LISTING_EDIT(job.id)}>
-														<Button variant="secondary" size="sm">
+													<Link
+														to={ROUTES.JOB_LISTING_EDIT(
+															job.id,
+														)}
+													>
+														<Button
+															variant="secondary"
+															size="sm"
+														>
 															Edit
 														</Button>
 													</Link>
-													<Link to={ROUTES.JOB_DETAIL(job.id)}>
-														<Button variant="secondary" size="sm">
+													<Link
+														to={ROUTES.JOB_DETAIL(
+															job.id,
+														)}
+													>
+														<Button
+															variant="secondary"
+															size="sm"
+														>
 															View analytics
 														</Button>
 													</Link>
@@ -153,10 +187,16 @@ function JobListingsPage() {
 						return (
 							<Card key={job.id}>
 								<CardBody className="space-y-3">
-									<p className="text-lg font-semibold text-slate-900">{job.title}</p>
-									<p className="text-sm text-slate-600">{job.location}</p>
+									<p className="text-lg font-semibold text-slate-900">
+										{job.title}
+									</p>
+									<p className="text-sm text-slate-600">
+										{job.location}
+									</p>
 									<div className="flex items-center justify-between text-sm">
-										<span>Applicants: {applicantCount}</span>
+										<span>
+											Applicants: {applicantCount}
+										</span>
 										<span>AI: {ai || "-"}%</span>
 									</div>
 									<Badge className="bg-slate-100 text-slate-700 ring-slate-200">

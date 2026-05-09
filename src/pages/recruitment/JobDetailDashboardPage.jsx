@@ -13,7 +13,7 @@ import {
 	roleScopedApplications,
 	roleScopedJobs,
 	stageCounts,
-} from "./recruitmentUtils";
+} from "../../utils/recruitmentUtils";
 
 function JobDetailDashboardPage() {
 	const { id } = useParams();
@@ -23,7 +23,12 @@ function JobDetailDashboardPage() {
 	const applications = useSelector(selectApplications);
 	const scopedJobs = roleScopedJobs(jobs, role, user);
 	const job = scopedJobs.find((item) => item.id === id);
-	const scopedApps = roleScopedApplications(applications, scopedJobs, role, user);
+	const scopedApps = roleScopedApplications(
+		applications,
+		scopedJobs,
+		role,
+		user,
+	);
 	const jobApps = scopedApps.filter((app) => app.jobListingId === id);
 	const counts = stageCounts(jobApps);
 	const aiAvg = avgAiMatchForJob(id, scopedApps);
@@ -40,7 +45,10 @@ function JobDetailDashboardPage() {
 					title="Job not found"
 					description="This job may be unavailable for your role scope."
 				/>
-				<Link to={ROUTES.JOB_LISTINGS} className="text-sm text-slate-600 underline">
+				<Link
+					to={ROUTES.JOB_LISTINGS}
+					className="text-sm text-slate-600 underline"
+				>
 					Back to listings
 				</Link>
 			</div>
@@ -69,7 +77,10 @@ function JobDetailDashboardPage() {
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				<Metric title="Applicants" value={jobApps.length} />
 				<Metric title="Avg AI Match" value={`${aiAvg || 0}%`} />
-				<Metric title="Interview Progress" value={counts.INTERVIEW_SCHEDULED || 0} />
+				<Metric
+					title="Interview Progress"
+					value={counts.INTERVIEW_SCHEDULED || 0}
+				/>
 				<Metric title="Conversion Rate" value={`${conversion}%`} />
 			</div>
 
@@ -82,7 +93,10 @@ function JobDetailDashboardPage() {
 					</CardHeader>
 					<CardBody className="space-y-3">
 						{Object.entries(counts).map(([stage, count]) => (
-							<div key={stage} className="flex items-center justify-between">
+							<div
+								key={stage}
+								className="flex items-center justify-between"
+							>
 								<StageBadge stage={stage} />
 								<span className="text-sm font-semibold text-slate-900">
 									{count}
@@ -99,10 +113,22 @@ function JobDetailDashboardPage() {
 						</h2>
 					</CardHeader>
 					<CardBody className="space-y-2 text-sm text-slate-700">
-						<p>Skill mismatch is highest for {job.requiredSkills[0] ?? "core"} competency.</p>
-						<p>Screening to interview conversion is lower than target this cycle.</p>
-						<p>Interview scheduling lag appears after stage transitions on weekdays.</p>
-						<p>Candidate momentum is strongest in first 72 hours post-application.</p>
+						<p>
+							Skill mismatch is highest for{" "}
+							{job.requiredSkills[0] ?? "core"} competency.
+						</p>
+						<p>
+							Screening to interview conversion is lower than
+							target this cycle.
+						</p>
+						<p>
+							Interview scheduling lag appears after stage
+							transitions on weekdays.
+						</p>
+						<p>
+							Candidate momentum is strongest in first 72 hours
+							post-application.
+						</p>
 					</CardBody>
 				</Card>
 			</div>
@@ -117,7 +143,9 @@ function Metric({ title, value }) {
 				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
 					{title}
 				</p>
-				<p className="mt-1 text-2xl font-semibold text-slate-950">{value}</p>
+				<p className="mt-1 text-2xl font-semibold text-slate-950">
+					{value}
+				</p>
 			</CardBody>
 		</Card>
 	);

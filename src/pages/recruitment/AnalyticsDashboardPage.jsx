@@ -12,7 +12,7 @@ import {
 	roleScopedApplications,
 	roleScopedJobs,
 	stageCounts,
-} from "./recruitmentUtils";
+} from "../../utils/recruitmentUtils";
 
 function AnalyticsDashboardPage() {
 	const role = useSelector(selectAuthRole);

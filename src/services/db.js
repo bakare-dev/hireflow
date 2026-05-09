@@ -7,6 +7,7 @@ import {
 	SEED_INTERVIEW_SLOTS,
 	SEED_AI_RESULTS,
 	SEED_NOTIFICATIONS,
+	SEED_COMPANY_REVIEWS,
 } from "../data";
 export const db = {
 	companies: [...SEED_COMPANIES],
@@ -17,4 +18,5 @@ export const db = {
 	interviewSlots: [...SEED_INTERVIEW_SLOTS],
 	aiResults: [...SEED_AI_RESULTS],
 	notifications: [...SEED_NOTIFICATIONS],
+	companyReviews: [...SEED_COMPANY_REVIEWS],
 };

@@ -48,6 +48,9 @@ function JobListingsPage() {
 				description="Operational workspace for all active and historical listings."
 				actions={
 					<div className="flex items-center gap-2">
+						<Link to={ROUTES.JOB_LISTING_NEW}>
+							<Button size="sm">Create listing</Button>
+						</Link>
 						<Button
 							variant={view === "table" ? "primary" : "secondary"}
 							size="sm"
@@ -120,11 +123,18 @@ function JobListingsPage() {
 											</Td>
 											<Td>{formatDate(job.createdAt)}</Td>
 											<Td>
-												<Link to={ROUTES.JOB_DETAIL(job.id)}>
-													<Button variant="secondary" size="sm">
-														View analytics
-													</Button>
-												</Link>
+												<div className="flex gap-2">
+													<Link to={ROUTES.JOB_LISTING_EDIT(job.id)}>
+														<Button variant="secondary" size="sm">
+															Edit
+														</Button>
+													</Link>
+													<Link to={ROUTES.JOB_DETAIL(job.id)}>
+														<Button variant="secondary" size="sm">
+															View analytics
+														</Button>
+													</Link>
+												</div>
 											</Td>
 										</tr>
 									);
@@ -155,6 +165,11 @@ function JobListingsPage() {
 									<Link to={ROUTES.JOB_DETAIL(job.id)}>
 										<Button variant="secondary" size="sm">
 											Open job dashboard
+										</Button>
+									</Link>
+									<Link to={ROUTES.JOB_LISTING_EDIT(job.id)}>
+										<Button variant="secondary" size="sm">
+											Edit listing
 										</Button>
 									</Link>
 								</CardBody>

@@ -1,18 +1,15 @@
-import { useDispatch } from "react-redux";
-import { showToast } from "../store/slices/uiSlice";
+import { toast } from "react-toastify";
 
 function useToast() {
-	const dispatch = useDispatch();
-
 	return {
 		info(message, durationMs = 4000) {
-			dispatch(showToast({ message, tone: "info", durationMs }));
+			toast.info(message, { autoClose: durationMs });
 		},
 		success(message, durationMs = 4000) {
-			dispatch(showToast({ message, tone: "success", durationMs }));
+			toast.success(message, { autoClose: durationMs });
 		},
 		error(message, durationMs = 4000) {
-			dispatch(showToast({ message, tone: "error", durationMs }));
+			toast.error(message, { autoClose: durationMs });
 		},
 	};
 }

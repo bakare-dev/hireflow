@@ -14,3 +14,4 @@ export {
   SEED_AI_RESULTS,
 } from './applications'
 export { SEED_NOTIFICATIONS } from './notifications'
+export { SEED_COMPANY_REVIEWS, REVIEW_CATEGORIES } from './companyReviews'

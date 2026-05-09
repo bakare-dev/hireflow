@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import AppRoutes from "./routes";
 import { restoreSession } from "./store/slices/authSlice";
 import { fetchJobs } from "./store/slices/jobsSlice";
 import { fetchApplications } from "./store/slices/applicationsSlice";
 import { fetchInterviewSlots } from "./store/slices/interviewsSlice";
-import ToastViewport from "./components/common/ToastViewport";
 
 function App() {
 	const dispatch = useDispatch();
@@ -20,7 +21,16 @@ function App() {
 	return (
 		<>
 			<AppRoutes />
-			<ToastViewport />
+			<ToastContainer
+				position="top-right"
+				autoClose={4000}
+				hideProgressBar={false}
+				newestOnTop
+				closeOnClick
+				pauseOnFocusLoss
+				draggable
+				pauseOnHover
+			/>
 		</>
 	);
 }

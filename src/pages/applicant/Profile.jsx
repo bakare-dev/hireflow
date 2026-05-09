@@ -1,12 +1,12 @@
 import { useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import Button from "../../components/common/Button";
+import RichTextEditor from "../../components/common/RichTextEditor";
 import SkillTagEditor from "../../components/common/SkillTagEditor";
 import Spinner from "../../components/common/Spinner";
 import { selectAuthUser } from "../../store/slices/authSlice";
 import { parseResume } from "../../utils/resumeParser";
 import { cn } from "../../utils/classnames";
-import RichTextEditor from "../../components/editor/RichTextEditor";
 
 function buildProfile(user) {
 	return {
@@ -92,9 +92,7 @@ function Profile() {
 			setResumeData(parsed);
 			setTab("resume");
 		} catch {
-			setParseError(
-				"Could not parse the PDF. Please check the file and try again.",
-			);
+			setParseError("Could not parse the PDF. Please check the file and try again.");
 		} finally {
 			setIsParsing(false);
 			if (fileRef.current) fileRef.current.value = "";
@@ -106,9 +104,7 @@ function Profile() {
 			<section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 				<div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
 					<div>
-						<p className="text-sm font-medium text-slate-500">
-							Profile
-						</p>
+						<p className="text-sm font-medium text-slate-500">Profile</p>
 						<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
 							{profile.name || "Your profile"}
 						</h1>
@@ -176,10 +172,7 @@ function Profile() {
 							action={
 								editing ? (
 									<div className="flex gap-2">
-										<Button
-											size="sm"
-											onClick={() => setEditing(false)}
-										>
+										<Button size="sm" onClick={() => setEditing(false)}>
 											Save
 										</Button>
 										<Button
@@ -206,49 +199,29 @@ function Profile() {
 									<Field
 										label="Full name"
 										value={profile.name}
-										onChange={(v) =>
-											updateProfile("name", v)
-										}
+										onChange={(v) => updateProfile("name", v)}
 									/>
 									<Field
 										label="Email"
 										value={profile.email}
-										onChange={(v) =>
-											updateProfile("email", v)
-										}
+										onChange={(v) => updateProfile("email", v)}
 									/>
 									<Field
 										label="Location"
 										value={profile.location}
-										onChange={(v) =>
-											updateProfile("location", v)
-										}
+										onChange={(v) => updateProfile("location", v)}
 									/>
 									<Field
 										label="Years of experience"
 										value={profile.yearsOfExperience}
-										onChange={(v) =>
-											updateProfile(
-												"yearsOfExperience",
-												v,
-											)
-										}
+										onChange={(v) => updateProfile("yearsOfExperience", v)}
 									/>
 								</div>
 							) : (
 								<dl className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-									<Detail
-										label="Name"
-										value={profile.name || "—"}
-									/>
-									<Detail
-										label="Email"
-										value={profile.email || "—"}
-									/>
-									<Detail
-										label="Location"
-										value={profile.location || "—"}
-									/>
+									<Detail label="Name" value={profile.name || "—"} />
+									<Detail label="Email" value={profile.email || "—"} />
+									<Detail label="Location" value={profile.location || "—"} />
 									<Detail
 										label="Experience"
 										value={
@@ -268,9 +241,7 @@ function Profile() {
 								<AreaField
 									label="Preferences"
 									value={profile.preferences}
-									onChange={(v) =>
-										updateProfile("preferences", v)
-									}
+									onChange={(v) => updateProfile("preferences", v)}
 								/>
 							) : (
 								<p className="text-sm leading-6 text-slate-700">
@@ -284,9 +255,7 @@ function Profile() {
 								<Field
 									label="Salary expectation"
 									value={profile.salaryExpectation}
-									onChange={(v) =>
-										updateProfile("salaryExpectation", v)
-									}
+									onChange={(v) => updateProfile("salaryExpectation", v)}
 								/>
 							) : (
 								<p className="text-sm text-slate-700">
@@ -308,8 +277,7 @@ function Profile() {
 									No resume data yet
 								</p>
 								<p className="mt-1 text-sm text-slate-500">
-									Upload a PDF to auto-fill this section, or
-									add details manually below.
+									Upload a PDF to auto-fill this section, or add details manually below.
 								</p>
 							</div>
 						)}
@@ -345,33 +313,25 @@ function Profile() {
 
 					<Panel title="Skills">
 						<p className="mb-2 text-xs text-slate-500">
-							Type a skill and press Enter or comma to add.
-							Backspace removes the last tag.
+							Type a skill and press Enter or comma to add. Backspace removes the last tag.
 						</p>
 						<SkillTagEditor
 							skills={resumeData.skills}
-							onChange={(skills) =>
-								updateResume("skills", skills)
-							}
+							onChange={(skills) => updateResume("skills", skills)}
 						/>
 					</Panel>
 
 					<Panel
 						title="Job experience"
 						action={
-							<Button
-								size="sm"
-								variant="secondary"
-								onClick={addExperience}
-							>
+							<Button size="sm" variant="secondary" onClick={addExperience}>
 								+ Add entry
 							</Button>
 						}
 					>
 						{resumeData.jobExperience.length === 0 ? (
 							<p className="text-sm text-slate-500">
-								No entries yet. Click "+ Add entry" or upload a
-								resume.
+								No entries yet. Click "+ Add entry" or upload a resume.
 							</p>
 						) : (
 							<div className="space-y-6">
@@ -381,15 +341,9 @@ function Profile() {
 										entry={entry}
 										index={idx}
 										onChange={(field, value) =>
-											updateExperience(
-												entry.id,
-												field,
-												value,
-											)
+											updateExperience(entry.id, field, value)
 										}
-										onRemove={() =>
-											removeExperience(entry.id)
-										}
+										onRemove={() => removeExperience(entry.id)}
 									/>
 								))}
 							</div>
@@ -447,9 +401,7 @@ function ExperienceEntry({ entry, index, onChange, onRemove }) {
 			</div>
 
 			<div>
-				<p className="mb-1.5 text-sm font-medium text-slate-800">
-					Description
-				</p>
+				<p className="mb-1.5 text-sm font-medium text-slate-800">Description</p>
 				<RichTextEditor
 					value={entry.experience}
 					onChange={(v) => onChange("experience", v)}
@@ -464,9 +416,7 @@ function Panel({ title, action, children }) {
 	return (
 		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
 			<div className="flex items-center justify-between">
-				<h2 className="text-lg font-semibold text-slate-950">
-					{title}
-				</h2>
+				<h2 className="text-lg font-semibold text-slate-950">{title}</h2>
 				{action}
 			</div>
 			<div className="mt-4">{children}</div>

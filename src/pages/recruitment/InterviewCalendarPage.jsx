@@ -10,11 +10,7 @@ import { selectApplications } from "../../store/slices/applicationsSlice";
 import { selectInterviewSlots } from "../../store/slices/interviewsSlice";
 import { selectJobs } from "../../store/slices/jobsSlice";
 import { formatDateTime } from "../../utils/date";
-import {
-	getUserMap,
-	roleScopedApplications,
-	roleScopedJobs,
-} from "../../utils/recruitmentUtils";
+import { getUserMap, roleScopedApplications, roleScopedJobs } from "./recruitmentUtils";
 
 function InterviewCalendarPage() {
 	const role = useSelector(selectAuthRole);
@@ -29,12 +25,7 @@ function InterviewCalendarPage() {
 	});
 	const users = getUserMap();
 	const scopedJobs = roleScopedJobs(jobs, role, user);
-	const scopedApps = roleScopedApplications(
-		applications,
-		scopedJobs,
-		role,
-		user,
-	);
+	const scopedApps = roleScopedApplications(applications, scopedJobs, role, user);
 	const appIds = new Set(scopedApps.map((app) => app.id));
 	const appsById = new Map(scopedApps.map((app) => [app.id, app]));
 	const jobsById = new Map(scopedJobs.map((job) => [job.id, job]));
@@ -63,21 +54,13 @@ function InterviewCalendarPage() {
 						<input
 							type="date"
 							value={focusDate}
-							onChange={(event) =>
-								setFocusDate(event.target.value)
-							}
+							onChange={(event) => setFocusDate(event.target.value)}
 							className="h-9 rounded-md border border-slate-200 px-2 text-sm"
 						/>
-						<ViewButton
-							active={view === "day"}
-							onClick={() => setView("day")}
-						>
+						<ViewButton active={view === "day"} onClick={() => setView("day")}>
 							Day
 						</ViewButton>
-						<ViewButton
-							active={view === "week"}
-							onClick={() => setView("week")}
-						>
+						<ViewButton active={view === "week"} onClick={() => setView("week")}>
 							Week
 						</ViewButton>
 						<ViewButton
@@ -110,42 +93,25 @@ function InterviewCalendarPage() {
 									<div className="flex flex-wrap items-center justify-between gap-2">
 										<div>
 											<p className="font-medium text-slate-900">
-												{candidate?.name ??
-													slot.applicationId}
+												{candidate?.name ?? slot.applicationId}
 											</p>
-											<p className="text-sm text-slate-600">
-												{job?.title}
-											</p>
+											<p className="text-sm text-slate-600">{job?.title}</p>
 										</div>
 										<div className="flex items-center gap-2">
-											<Link
-												to={ROUTES.INTERVIEW_FEEDBACK(
-													slot.id,
-												)}
-											>
-												<Button
-													variant="secondary"
-													size="sm"
-												>
+											<Link to={ROUTES.INTERVIEW_FEEDBACK(slot.id)}>
+												<Button variant="secondary" size="sm">
 													Feedback
 												</Button>
 											</Link>
 											{slot.meetLink ? (
-												<a
-													href={slot.meetLink}
-													target="_blank"
-													rel="noreferrer"
-												>
-													<Button size="sm">
-														Join link
-													</Button>
+												<a href={slot.meetLink} target="_blank" rel="noreferrer">
+													<Button size="sm">Join link</Button>
 												</a>
 											) : null}
 										</div>
 									</div>
 									<p className="mt-2 text-sm text-slate-700">
-										{formatDateTime(slot.scheduledAt)} ·{" "}
-										{slot.durationMinutes}m
+										{formatDateTime(slot.scheduledAt)} · {slot.durationMinutes}m
 									</p>
 								</div>
 							);
@@ -163,11 +129,7 @@ function InterviewCalendarPage() {
 
 function ViewButton({ active, onClick, children }) {
 	return (
-		<Button
-			variant={active ? "primary" : "secondary"}
-			size="sm"
-			onClick={onClick}
-		>
+		<Button variant={active ? "primary" : "secondary"} size="sm" onClick={onClick}>
 			{children}
 		</Button>
 	);

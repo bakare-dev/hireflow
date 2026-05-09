@@ -8,10 +8,10 @@ import Select from "../../components/common/Select";
 import MatchPercentBar from "../../components/domain/MatchPercentBar";
 import { JOB_LISTING_STATUS } from "../../constants/jobStatus";
 import { ROUTES } from "../../constants/routes";
-import { EMPLOYMENT_TYPE_LABELS } from "../../constants/employment";
+import { WORK_MODE_LABELS } from "../../constants/employment";
 import { selectAuthUser } from "../../store/slices/authSlice";
 import { selectApplications } from "../../store/slices/applicationsSlice";
-import { useGetOpenJobsQuery } from "../../api/jobsApi";
+import { selectJobs, selectJobsStatus } from "../../store/slices/jobsSlice";
 import {
 	applicationForJob,
 	applicationLastUpdated,
@@ -22,33 +22,24 @@ import {
 	matchSkills,
 	nextStageLabel,
 	stageEta,
+	workModeLabel,
 } from "../../utils/applicant";
 import ApplyModal from "./ApplyModal";
 import JobCard from "./JobCard";
-import RichTextViewer from "../../components/editor/RichTextViewer";
 
 const VISIBLE_STEP = 6;
 
 function JobDiscovery() {
 	const user = useSelector(selectAuthUser);
+	const jobs = useSelector(selectJobs);
+	const jobsStatus = useSelector(selectJobsStatus);
 	const applications = useSelector(selectApplications);
-	const { data: apiResponse, isLoading: isJobsLoading } = useGetOpenJobsQuery(
-		{
-			page: 0,
-			size: 50,
-		},
-	);
 	const [query, setQuery] = useState("");
 	const [workMode, setWorkMode] = useState("");
 	const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
 	const [savedIds, setSavedIds] = useState(() => new Set());
 	const [applyJob, setApplyJob] = useState(null);
 	const [selectedId, setSelectedId] = useState(null);
-
-	const jobs = useMemo(
-		() => apiResponse?.content || [],
-		[apiResponse?.content],
-	);
 
 	const openJobs = useMemo(
 		() => jobs.filter((job) => job.status === JOB_LISTING_STATUS.OPEN),
@@ -59,8 +50,8 @@ function JobDiscovery() {
 		const q = query.trim().toLowerCase();
 		return openJobs.filter((job) => {
 			const matchesQuery = q ? jobSearchText(job).includes(q) : true;
-			const matchesType = workMode ? job.type === workMode : true;
-			return matchesQuery && matchesType;
+			const matchesMode = workMode ? job.workMode === workMode : true;
+			return matchesQuery && matchesMode;
 		});
 	}, [openJobs, query, workMode]);
 
@@ -73,9 +64,7 @@ function JobDiscovery() {
 	const selectedApplication = selectedJob
 		? applicationForJob(applications, selectedJob.id, user?.id)
 		: null;
-	const selectedMatch = selectedJob
-		? computeMatchPercent(selectedJob, user)
-		: 0;
+	const selectedMatch = selectedJob ? computeMatchPercent(selectedJob, user) : 0;
 	const selectedSkills = selectedJob ? matchSkills(selectedJob, user) : null;
 	const applyApplication = applyJob
 		? applicationForJob(applications, applyJob.id, user?.id)
@@ -95,9 +84,7 @@ function JobDiscovery() {
 			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
 				<div className="flex flex-col gap-4 lg:flex-row lg:items-end">
 					<div className="flex-1">
-						<p className="text-sm font-medium text-slate-500">
-							Find Jobs
-						</p>
+						<p className="text-sm font-medium text-slate-500">Find Jobs</p>
 						<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
 							Find work that feels right.
 						</h1>
@@ -107,15 +94,15 @@ function JobDiscovery() {
 							label="Search"
 							value={query}
 							onChange={(e) => setQuery(e.target.value)}
-							placeholder="Title"
+							placeholder="Title, skill, location"
 						/>
 						<Select
-							label="Employment type"
+							label="Work mode"
 							value={workMode}
 							onChange={(e) => setWorkMode(e.target.value)}
 							options={[
 								{ value: "", label: "Any" },
-								...Object.entries(EMPLOYMENT_TYPE_LABELS).map(
+								...Object.entries(WORK_MODE_LABELS).map(
 									([value, label]) => ({ value, label }),
 								),
 							]}
@@ -126,11 +113,8 @@ function JobDiscovery() {
 
 			<div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
 				<section className="space-y-3">
-					{isJobsLoading ? (
-						<EmptyState
-							title="Loading jobs"
-							description="Finding open roles..."
-						/>
+					{jobsStatus === "loading" ? (
+						<EmptyState title="Loading jobs" description="Finding open roles..." />
 					) : visibleJobs.length ? (
 						<>
 							{visibleJobs.map((job) => {
@@ -158,9 +142,7 @@ function JobDiscovery() {
 									variant="secondary"
 									className="w-full"
 									onClick={() =>
-										setVisibleCount(
-											(count) => count + VISIBLE_STEP,
-										)
+										setVisibleCount((count) => count + VISIBLE_STEP)
 									}
 								>
 									Load more jobs
@@ -180,15 +162,13 @@ function JobDiscovery() {
 						<div className="sticky top-20 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 							<div className="flex items-start justify-between gap-4">
 								<div>
-									<p className="text-sm text-slate-500">
-										{selectedJob.companyName}
-									</p>
+									<p className="text-sm text-slate-500">Acme Labs</p>
 									<h2 className="mt-1 text-2xl font-semibold text-slate-950">
 										{selectedJob.title}
 									</h2>
 									<p className="mt-2 text-sm text-slate-600">
-										{selectedJob.location} ·{" "}
-										{employmentTypeLabel(selectedJob.type)}
+										{selectedJob.location} · {workModeLabel(selectedJob.workMode)} ·{" "}
+										{employmentTypeLabel(selectedJob.employmentType)}
 									</p>
 								</div>
 								<Button
@@ -196,129 +176,62 @@ function JobDiscovery() {
 									size="sm"
 									onClick={() => toggleSave(selectedJob.id)}
 								>
-									{savedIds.has(selectedJob.id)
-										? "Saved"
-										: "Save"}
+									{savedIds.has(selectedJob.id) ? "Saved" : "Save"}
 								</Button>
 							</div>
 
 							<div className="mt-5 grid gap-3 sm:grid-cols-2">
-								{selectedJob.salary && (
-									<div className="rounded-lg bg-slate-50 p-4">
-										<p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-											Salary
-										</p>
-										<p className="mt-1 text-sm font-semibold text-slate-950">
-											{formatSalary(selectedJob.salary)}
-										</p>
-									</div>
-								)}
+								<div className="rounded-lg bg-slate-50 p-4">
+									<p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+										Salary
+									</p>
+									<p className="mt-1 text-sm font-semibold text-slate-950">
+										{formatSalary(selectedJob.salary)}
+									</p>
+								</div>
 								<div className="rounded-lg bg-emerald-50 p-4">
 									<p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
-										Job match
+										AI match
 									</p>
-									<MatchPercentBar
-										value={selectedMatch}
-										className="mt-2"
-									/>
+									<MatchPercentBar value={selectedMatch} className="mt-2" />
 								</div>
 							</div>
 
 							{selectedApplication ? (
 								<div className="mt-5 rounded-lg border border-slate-200 p-4">
 									<p className="text-sm font-semibold text-slate-950">
-										You applied on{" "}
-										{applicationLastUpdated(
-											selectedApplication,
-										)}
+										You applied on {applicationLastUpdated(selectedApplication)}
 									</p>
 									<p className="mt-1 text-sm text-slate-600">
-										Next:{" "}
-										{nextStageLabel(
-											selectedApplication.currentStage,
-										)}
+										Next: {nextStageLabel(selectedApplication.currentStage)}
 									</p>
 									<p className="mt-1 text-sm text-slate-600">
-										{stageEta(
-											selectedApplication.currentStage,
-										)}
+										{stageEta(selectedApplication.currentStage)}
 									</p>
 								</div>
 							) : null}
 
-							{selectedJob.summary ? (
-								<div className="mt-5">
-									<p className="text-sm font-semibold text-slate-950">
-										Summary
-									</p>
-									<RichTextViewer
-										content={selectedJob.summary}
-										className="mt-2"
-									/>
-								</div>
-							) : null}
-
-							{selectedJob.responsibilities ? (
-								<div className="mt-5">
-									<p className="text-sm font-semibold text-slate-950">
-										Responsibilities
-									</p>
-									<RichTextViewer
-										content={selectedJob.responsibilities}
-										className="mt-2"
-									/>
-								</div>
-							) : null}
-
-							{selectedJob.requiredQualifications ? (
-								<div className="mt-5">
-									<p className="text-sm font-semibold text-slate-950">
-										Required Qualifications
-									</p>
-									<RichTextViewer
-										content={
-											selectedJob.requiredQualifications
-										}
-										className="mt-2"
-									/>
-								</div>
-							) : null}
-
-							{selectedJob.preferredQualifications ? (
-								<div className="mt-5">
-									<p className="text-sm font-semibold text-slate-950">
-										Preferred Qualifications
-									</p>
-									<RichTextViewer
-										content={
-											selectedJob.preferredQualifications
-										}
-										className="mt-2"
-									/>
-								</div>
-							) : null}
+							<p className="mt-5 text-sm leading-6 text-slate-700">
+								{selectedJob.description}
+							</p>
 
 							<div className="mt-5">
 								<p className="text-sm font-semibold text-slate-950">
 									Skills in this role
 								</p>
 								<div className="mt-2 flex flex-wrap gap-2">
-									{selectedJob.skills?.map((skill) => (
+									{selectedJob.requiredSkills.map((skill) => (
 										<span
-											key={skill.id}
+											key={skill}
 											className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
 										>
-											{skill.name}
+											{skill}
 										</span>
 									))}
 								</div>
-								{selectedSkills?.matched && (
-									<p className="mt-3 text-sm text-slate-600">
-										Matched:{" "}
-										{selectedSkills.matched.join(", ") ||
-											"None yet"}
-									</p>
-								)}
+								<p className="mt-3 text-sm text-slate-600">
+									Matched: {selectedSkills.matched.join(", ") || "None yet"}
+								</p>
 							</div>
 
 							<div className="mt-6 flex gap-3">
@@ -326,18 +239,10 @@ function JobDiscovery() {
 									onClick={() => setApplyJob(selectedJob)}
 									disabled={!!selectedApplication}
 								>
-									{selectedApplication
-										? "Already applied"
-										: "Easy apply"}
+									{selectedApplication ? "Already applied" : "Easy apply"}
 								</Button>
-								<Link
-									to={ROUTES.APPLICANT_JOB_DETAIL(
-										selectedJob.id,
-									)}
-								>
-									<Button variant="secondary">
-										View details
-									</Button>
+								<Link to={ROUTES.APPLICANT_JOB_DETAIL(selectedJob.id)}>
+									<Button variant="secondary">View details</Button>
 								</Link>
 							</div>
 						</div>

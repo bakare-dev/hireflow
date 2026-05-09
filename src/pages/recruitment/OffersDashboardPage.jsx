@@ -11,7 +11,7 @@ import {
 	getUserMap,
 	roleScopedApplications,
 	roleScopedJobs,
-} from "../../utils/recruitmentUtils";
+} from "./recruitmentUtils";
 
 function OffersDashboardPage() {
 	const role = useSelector(selectAuthRole);
@@ -20,12 +20,7 @@ function OffersDashboardPage() {
 	const applications = useSelector(selectApplications);
 	const users = getUserMap();
 	const scopedJobs = roleScopedJobs(jobs, role, user);
-	const scopedApps = roleScopedApplications(
-		applications,
-		scopedJobs,
-		role,
-		user,
-	);
+	const scopedApps = roleScopedApplications(applications, scopedJobs, role, user);
 	const jobsById = new Map(scopedJobs.map((job) => [job.id, job]));
 
 	const sent = scopedApps.filter(
@@ -55,10 +50,7 @@ function OffersDashboardPage() {
 
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
 				<Metric title="Draft offers" value={summary.draft} />
-				<Metric
-					title="Pending approval"
-					value={summary.pendingApproval}
-				/>
+				<Metric title="Pending approval" value={summary.pendingApproval} />
 				<Metric title="Sent offers" value={summary.sent.length} />
 				<Metric title="Accepted" value={summary.accepted.length} />
 				<Metric title="Declined" value={summary.declined.length} />
@@ -66,9 +58,7 @@ function OffersDashboardPage() {
 
 			<Card>
 				<CardHeader>
-					<h2 className="text-sm font-semibold text-slate-900">
-						Offer Queue
-					</h2>
+					<h2 className="text-sm font-semibold text-slate-900">Offer Queue</h2>
 				</CardHeader>
 				<CardBody className="space-y-3">
 					{summary.sent.length ? (
@@ -76,18 +66,11 @@ function OffersDashboardPage() {
 							const job = jobsById.get(app.jobListingId);
 							const person = users.get(app.applicantId);
 							return (
-								<div
-									key={app.id}
-									className="rounded-lg border border-slate-200 p-4"
-								>
+								<div key={app.id} className="rounded-lg border border-slate-200 p-4">
 									<div className="flex flex-wrap items-center justify-between gap-2">
 										<div>
-											<p className="font-medium text-slate-900">
-												{person?.name}
-											</p>
-											<p className="text-sm text-slate-600">
-												{job?.title}
-											</p>
+											<p className="font-medium text-slate-900">{person?.name}</p>
+											<p className="text-sm text-slate-600">{job?.title}</p>
 										</div>
 										<Badge className="bg-amber-100 text-amber-800 ring-amber-200">
 											Offer Sent
@@ -100,9 +83,7 @@ function OffersDashboardPage() {
 							);
 						})
 					) : (
-						<p className="text-sm text-slate-600">
-							No offers in queue.
-						</p>
+						<p className="text-sm text-slate-600">No offers in queue.</p>
 					)}
 				</CardBody>
 			</Card>
@@ -117,9 +98,7 @@ function Metric({ title, value }) {
 				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
 					{title}
 				</p>
-				<p className="mt-1 text-2xl font-semibold text-slate-950">
-					{value}
-				</p>
+				<p className="mt-1 text-2xl font-semibold text-slate-950">{value}</p>
 			</CardBody>
 		</Card>
 	);

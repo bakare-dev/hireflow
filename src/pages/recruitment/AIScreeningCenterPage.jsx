@@ -11,7 +11,7 @@ import {
 	getUserMap,
 	roleScopedApplications,
 	roleScopedJobs,
-} from "../../utils/recruitmentUtils";
+} from "./recruitmentUtils";
 
 function AIScreeningCenterPage() {
 	const role = useSelector(selectAuthRole);
@@ -21,12 +21,7 @@ function AIScreeningCenterPage() {
 	const users = getUserMap();
 	const aiMap = aiByApplicationId();
 	const scopedJobs = roleScopedJobs(jobs, role, user);
-	const scopedApps = roleScopedApplications(
-		applications,
-		scopedJobs,
-		role,
-		user,
-	);
+	const scopedApps = roleScopedApplications(applications, scopedJobs, role, user);
 	const [jobFilter, setJobFilter] = useState("ALL");
 	const jobsById = new Map(scopedJobs.map((job) => [job.id, job]));
 
@@ -49,9 +44,7 @@ function AIScreeningCenterPage() {
 				description="AI triage workspace for approval trends, borderline reviews, and rejection audits."
 			/>
 			<div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
-				<label className="text-sm font-medium text-slate-800">
-					Job posting
-				</label>
+				<label className="text-sm font-medium text-slate-800">Job posting</label>
 				<select
 					value={jobFilter}
 					onChange={(event) => setJobFilter(event.target.value)}
@@ -73,24 +66,9 @@ function AIScreeningCenterPage() {
 			</div>
 
 			<div className="grid gap-5 xl:grid-cols-3">
-				<QueueColumn
-					title="Auto-approved"
-					rows={autoApproved}
-					users={users}
-					jobsById={jobsById}
-				/>
-				<QueueColumn
-					title="Borderline review"
-					rows={borderline}
-					users={users}
-					jobsById={jobsById}
-				/>
-				<QueueColumn
-					title="Auto-rejected"
-					rows={autoRejected}
-					users={users}
-					jobsById={jobsById}
-				/>
+				<QueueColumn title="Auto-approved" rows={autoApproved} users={users} jobsById={jobsById} />
+				<QueueColumn title="Borderline review" rows={borderline} users={users} jobsById={jobsById} />
+				<QueueColumn title="Auto-rejected" rows={autoRejected} users={users} jobsById={jobsById} />
 			</div>
 		</div>
 	);
@@ -103,9 +81,7 @@ function Metric({ title, value }) {
 				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
 					{title}
 				</p>
-				<p className="mt-1 text-2xl font-semibold text-slate-950">
-					{value}
-				</p>
+				<p className="mt-1 text-2xl font-semibold text-slate-950">{value}</p>
 			</CardBody>
 		</Card>
 	);
@@ -115,9 +91,7 @@ function QueueColumn({ title, rows, users, jobsById }) {
 	return (
 		<Card>
 			<CardHeader>
-				<h2 className="text-sm font-semibold text-slate-900">
-					{title}
-				</h2>
+				<h2 className="text-sm font-semibold text-slate-900">{title}</h2>
 			</CardHeader>
 			<CardBody className="space-y-3">
 				{rows.length ? (
@@ -125,38 +99,27 @@ function QueueColumn({ title, rows, users, jobsById }) {
 						const candidate = users.get(app.applicantId);
 						const job = jobsById.get(app.jobListingId);
 						return (
-							<div
-								key={app.id}
-								className="rounded-lg border border-slate-200 p-3"
-							>
+							<div key={app.id} className="rounded-lg border border-slate-200 p-3">
 								<div className="mb-2 flex items-start justify-between gap-2">
 									<div>
 										<p className="font-medium text-slate-900">
 											{candidate?.name ?? app.applicantId}
 										</p>
-										<p className="text-xs text-slate-500">
-											{job?.title}
-										</p>
+										<p className="text-xs text-slate-500">{job?.title}</p>
 									</div>
 									<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
 										{ai.matchPercentage}%
 									</Badge>
 								</div>
 								<p className="text-xs text-slate-600">
-									Missing:{" "}
-									{(ai.unmatchedSkills ?? []).join(", ") ||
-										"None"}
+									Missing: {(ai.unmatchedSkills ?? []).join(", ") || "None"}
 								</p>
-								<p className="mt-1 text-xs text-slate-500">
-									{ai.summaryNote}
-								</p>
+								<p className="mt-1 text-xs text-slate-500">{ai.summaryNote}</p>
 							</div>
 						);
 					})
 				) : (
-					<p className="text-sm text-slate-600">
-						No candidates in this queue.
-					</p>
+					<p className="text-sm text-slate-600">No candidates in this queue.</p>
 				)}
 			</CardBody>
 		</Card>

@@ -9,7 +9,9 @@ import {
 	computeMatchPercent,
 	employmentTypeLabel,
 	formatSalary,
+	isRemote,
 	postedLabel,
+	workModeLabel,
 } from "../../utils/applicant";
 
 function JobCard({
@@ -33,19 +35,13 @@ function JobCard({
 					: "border-slate-200",
 			)}
 		>
-			<button
-				type="button"
-				onClick={onSelect}
-				className="block w-full text-left"
-			>
+			<button type="button" onClick={onSelect} className="block w-full text-left">
 				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0">
 						<h2 className="text-lg font-semibold leading-snug text-slate-950">
 							{job.title}
 						</h2>
-						<p className="mt-1 text-sm text-slate-600">
-							{job.companyName}
-						</p>
+						<p className="mt-1 text-sm text-slate-600">Acme Labs</p>
 					</div>
 					<Badge className="shrink-0 bg-emerald-50 text-emerald-700 ring-emerald-200">
 						{match}% match
@@ -55,7 +51,9 @@ function JobCard({
 				<div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-700">
 					<span>{job.location}</span>
 					<span aria-hidden>·</span>
-					<span>{employmentTypeLabel(job.type)}</span>
+					<span>{workModeLabel(job.workMode)}</span>
+					<span aria-hidden>·</span>
+					<span>{employmentTypeLabel(job.employmentType)}</span>
 				</div>
 
 				<p className="mt-2 text-sm font-medium text-slate-950">
@@ -63,21 +61,22 @@ function JobCard({
 				</p>
 
 				<div className="mt-3 flex flex-wrap gap-2">
-					{job.skills?.slice(0, 3).map((skill) => (
+					{isRemote(job) ? (
+						<Badge className="bg-blue-50 text-blue-700 ring-blue-200">
+							Remote
+						</Badge>
+					) : null}
+					{job.requiredSkills.slice(0, 3).map((skill) => (
 						<Badge
-							key={skill.id}
+							key={skill}
 							className="bg-slate-50 text-slate-700 ring-slate-200"
 						>
-							{skill.name}
+							{skill}
 						</Badge>
 					))}
 				</div>
 
-				<MatchPercentBar
-					value={match}
-					className="mt-4"
-					showValue={false}
-				/>
+				<MatchPercentBar value={match} className="mt-4" showValue={false} />
 
 				{application ? (
 					<div className="mt-4 rounded-lg bg-slate-50 p-3">

@@ -137,9 +137,10 @@ export function jobSearchText(job) {
 	return [
 		job.title,
 		job.location,
-		job.companyName,
-		employmentTypeLabel(job.type),
-		...(job.skills?.map((s) => s.name) ?? []),
+		workModeLabel(job.workMode),
+		employmentTypeLabel(job.employmentType),
+		...(job.requiredSkills ?? []),
+		...(job.niceToHaveSkills ?? []),
 	]
 		.join(" ")
 		.toLowerCase();

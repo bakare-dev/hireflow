@@ -1,6 +1,6 @@
-import { SEED_AI_RESULTS, SEED_STAGE_UPDATES, SEED_USERS } from "../data";
-import { JOB_LISTING_STATUS } from "../constants/jobStatus";
-import { PIPELINE_STAGES, STAGE_ORDER } from "../constants/stages";
+import { SEED_AI_RESULTS, SEED_STAGE_UPDATES, SEED_USERS } from "../../data";
+import { JOB_LISTING_STATUS } from "../../constants/jobStatus";
+import { PIPELINE_STAGES, STAGE_ORDER } from "../../constants/stages";
 
 export function avg(values) {
 	if (!values.length) return 0;
@@ -35,9 +35,7 @@ export function roleScopedApplications(applications, jobs, role, user) {
 	if (!user) return [];
 	if (role === "ADMIN") return applications;
 	const jobIds = new Set(
-		jobs
-			.filter((job) => job.hiringManagerId === user.id)
-			.map((job) => job.id),
+		jobs.filter((job) => job.hiringManagerId === user.id).map((job) => job.id),
 	);
 	return applications.filter((app) => jobIds.has(app.jobListingId));
 }
@@ -56,8 +54,7 @@ export function stageCounts(applications) {
 		[PIPELINE_STAGES.REJECTED]: 0,
 	};
 	for (const app of applications) {
-		if (counts[app.currentStage] !== undefined)
-			counts[app.currentStage] += 1;
+		if (counts[app.currentStage] !== undefined) counts[app.currentStage] += 1;
 	}
 	return counts;
 }

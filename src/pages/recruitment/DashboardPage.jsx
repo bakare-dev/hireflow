@@ -13,7 +13,7 @@ import {
 	orderedFunnel,
 	roleScopedApplications,
 	roleScopedJobs,
-} from "./recruitmentUtils";
+} from "../../utils/recruitmentUtils";
 
 function DashboardPage() {
 	const role = useSelector(selectAuthRole);
@@ -55,17 +55,31 @@ function DashboardPage() {
 
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 				<KpiCard label="Open roles" value={kpi.openRoles} />
-				<KpiCard label="Active candidates" value={kpi.activeCandidates} />
-				<KpiCard label="Interviews this week" value={kpi.interviewsThisWeek} />
+				<KpiCard
+					label="Active candidates"
+					value={kpi.activeCandidates}
+				/>
+				<KpiCard
+					label="Interviews this week"
+					value={kpi.interviewsThisWeek}
+				/>
 				<KpiCard label="Offers pending" value={kpi.offersPending} />
-				<KpiCard label="Avg time-to-hire" value={`${kpi.avgTimeToHireDays} days`} />
-				<KpiCard label="Hiring velocity" value={`${kpi.hiringVelocity}%`} />
+				<KpiCard
+					label="Avg time-to-hire"
+					value={`${kpi.avgTimeToHireDays} days`}
+				/>
+				<KpiCard
+					label="Hiring velocity"
+					value={`${kpi.hiringVelocity}%`}
+				/>
 			</div>
 
 			<div className="grid gap-5 xl:grid-cols-3">
 				<Card className="xl:col-span-1">
 					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">Hiring Funnel</h2>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Hiring Funnel
+						</h2>
 					</CardHeader>
 					<CardBody className="space-y-3">
 						{funnelRows.map((row) => (
@@ -85,7 +99,9 @@ function DashboardPage() {
 												Math.min(
 													100,
 													kpi.activeCandidates
-														? (row.value / kpi.activeCandidates) * 100
+														? (row.value /
+																kpi.activeCandidates) *
+																100
 														: 8,
 												),
 											)}%`,
@@ -99,13 +115,27 @@ function DashboardPage() {
 
 				<Card className="xl:col-span-1">
 					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">AI Insights Feed</h2>
+						<h2 className="text-sm font-semibold text-slate-900">
+							AI Insights Feed
+						</h2>
 					</CardHeader>
 					<CardBody className="space-y-3 text-sm text-slate-700">
-						<p>Backend Engineer role has 16 strong matches in screening queue.</p>
-						<p>Interview stage is creating most delays in current pipeline cycle.</p>
-						<p>AI rejection rate increased for DevOps-related applications.</p>
-						<p>Borderline candidates cluster around missing core backend skills.</p>
+						<p>
+							Backend Engineer role has 16 strong matches in
+							screening queue.
+						</p>
+						<p>
+							Interview stage is creating most delays in current
+							pipeline cycle.
+						</p>
+						<p>
+							AI rejection rate increased for DevOps-related
+							applications.
+						</p>
+						<p>
+							Borderline candidates cluster around missing core
+							backend skills.
+						</p>
 					</CardBody>
 				</Card>
 
@@ -126,12 +156,15 @@ function DashboardPage() {
 										Interview: {slot.applicationId}
 									</p>
 									<p className="text-slate-600">
-										{formatDateTime(slot.scheduledAt)} · {slot.durationMinutes}m
+										{formatDateTime(slot.scheduledAt)} ·{" "}
+										{slot.durationMinutes}m
 									</p>
 								</div>
 							))
 						) : (
-							<p className="text-sm text-slate-600">No interviews scheduled.</p>
+							<p className="text-sm text-slate-600">
+								No interviews scheduled.
+							</p>
 						)}
 					</CardBody>
 				</Card>
@@ -147,7 +180,9 @@ function KpiCard({ label, value }) {
 				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
 					{label}
 				</p>
-				<p className="mt-1 text-2xl font-semibold text-slate-950">{value}</p>
+				<p className="mt-1 text-2xl font-semibold text-slate-950">
+					{value}
+				</p>
 			</CardBody>
 		</Card>
 	);

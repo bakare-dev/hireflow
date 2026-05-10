@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
@@ -18,7 +18,6 @@ import {
 	computeMatchPercent,
 	employmentTypeLabel,
 	formatSalary,
-	jobSearchText,
 	matchSkills,
 	nextStageLabel,
 	stageEta,
@@ -32,51 +31,65 @@ const VISIBLE_STEP = 6;
 function JobDiscovery() {
 	const user = useSelector(selectAuthUser);
 	const applications = useSelector(selectApplications);
-	const { data: apiResponse, isLoading: isJobsLoading } = useGetOpenJobsQuery(
-		{
-			page: 0,
-			size: 50,
-		},
-	);
+
 	const [query, setQuery] = useState("");
-	const [workMode, setWorkMode] = useState("");
+	const [jobType, setJobType] = useState("");
 	const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
 	const [savedIds, setSavedIds] = useState(() => new Set());
 	const [applyJob, setApplyJob] = useState(null);
 	const [selectedId, setSelectedId] = useState(null);
 
-	const jobs = useMemo(
-		() => apiResponse?.content || [],
-		[apiResponse?.content],
+	const { data: apiResponse, isLoading: isJobsLoading } = useGetOpenJobsQuery(
+		{
+			page: 0,
+			size: 50,
+			title: query || undefined,
+			type: jobType || undefined,
+		},
 	);
 
-	const openJobs = useMemo(
-		() => jobs.filter((job) => job.status === JOB_LISTING_STATUS.OPEN),
-		[jobs],
-	);
+	const jobs = useMemo(() => {
+		return apiResponse?.content || [];
+	}, [apiResponse?.content]);
+
+	const openJobs = useMemo(() => {
+		return jobs.filter((job) => job.status === JOB_LISTING_STATUS.OPEN);
+	}, [jobs]);
 
 	const filteredJobs = useMemo(() => {
 		const q = query.trim().toLowerCase();
+
 		return openJobs.filter((job) => {
-			const matchesQuery = q ? jobSearchText(job).includes(q) : true;
-			const matchesType = workMode ? job.type === workMode : true;
+			const matchesQuery = q
+				? job.title?.toLowerCase().includes(q)
+				: true;
+
+			const matchesType = jobType ? job.type === jobType : true;
+
 			return matchesQuery && matchesType;
 		});
-	}, [openJobs, query, workMode]);
+	}, [openJobs, query, jobType]);
 
-	const visibleJobs = filteredJobs.slice(0, visibleCount);
+	const visibleJobs = useMemo(() => {
+		return filteredJobs.slice(0, visibleCount);
+	}, [filteredJobs, visibleCount]);
+
 	const selectedJob =
-		filteredJobs.find((job) => job.id === selectedId) ??
-		visibleJobs[0] ??
-		filteredJobs[0] ??
+		filteredJobs.find((job) => job.id === selectedId) ||
+		visibleJobs[0] ||
+		filteredJobs[0] ||
 		null;
+
 	const selectedApplication = selectedJob
 		? applicationForJob(applications, selectedJob.id, user?.id)
 		: null;
+
 	const selectedMatch = selectedJob
 		? computeMatchPercent(selectedJob, user)
 		: 0;
+
 	const selectedSkills = selectedJob ? matchSkills(selectedJob, user) : null;
+
 	const applyApplication = applyJob
 		? applicationForJob(applications, applyJob.id, user?.id)
 		: null;
@@ -84,8 +97,13 @@ function JobDiscovery() {
 	function toggleSave(jobId) {
 		setSavedIds((current) => {
 			const next = new Set(current);
-			if (next.has(jobId)) next.delete(jobId);
-			else next.add(jobId);
+
+			if (next.has(jobId)) {
+				next.delete(jobId);
+			} else {
+				next.add(jobId);
+			}
+
 			return next;
 		});
 	}
@@ -98,10 +116,12 @@ function JobDiscovery() {
 						<p className="text-sm font-medium text-slate-500">
 							Find Jobs
 						</p>
+
 						<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
 							Find work that feels right.
 						</h1>
 					</div>
+
 					<div className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_220px] lg:w-[560px]">
 						<Input
 							label="Search"
@@ -109,14 +129,21 @@ function JobDiscovery() {
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Title"
 						/>
+
 						<Select
 							label="Employment type"
-							value={workMode}
-							onChange={(e) => setWorkMode(e.target.value)}
+							value={jobType}
+							onChange={(e) => setJobType(e.target.value)}
 							options={[
-								{ value: "", label: "Any" },
+								{
+									value: "",
+									label: "Any",
+								},
 								...Object.entries(EMPLOYMENT_TYPE_LABELS).map(
-									([value, label]) => ({ value, label }),
+									([value, label]) => ({
+										value,
+										label,
+									}),
 								),
 							]}
 						/>
@@ -139,6 +166,7 @@ function JobDiscovery() {
 									job.id,
 									user?.id,
 								);
+
 								return (
 									<JobCard
 										key={job.id}
@@ -153,6 +181,7 @@ function JobDiscovery() {
 									/>
 								);
 							})}
+
 							{visibleCount < filteredJobs.length ? (
 								<Button
 									variant="secondary"
@@ -183,14 +212,17 @@ function JobDiscovery() {
 									<p className="text-sm text-slate-500">
 										{selectedJob.companyName}
 									</p>
+
 									<h2 className="mt-1 text-2xl font-semibold text-slate-950">
 										{selectedJob.title}
 									</h2>
+
 									<p className="mt-2 text-sm text-slate-600">
 										{selectedJob.location} ·{" "}
 										{employmentTypeLabel(selectedJob.type)}
 									</p>
 								</div>
+
 								<Button
 									variant="secondary"
 									size="sm"
@@ -203,20 +235,23 @@ function JobDiscovery() {
 							</div>
 
 							<div className="mt-5 grid gap-3 sm:grid-cols-2">
-								{selectedJob.salary && (
+								{selectedJob.salary ? (
 									<div className="rounded-lg bg-slate-50 p-4">
 										<p className="text-xs font-medium uppercase tracking-wide text-slate-500">
 											Salary
 										</p>
+
 										<p className="mt-1 text-sm font-semibold text-slate-950">
 											{formatSalary(selectedJob.salary)}
 										</p>
 									</div>
-								)}
+								) : null}
+
 								<div className="rounded-lg bg-emerald-50 p-4">
 									<p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
 										Job match
 									</p>
+
 									<MatchPercentBar
 										value={selectedMatch}
 										className="mt-2"
@@ -232,12 +267,14 @@ function JobDiscovery() {
 											selectedApplication,
 										)}
 									</p>
+
 									<p className="mt-1 text-sm text-slate-600">
 										Next:{" "}
 										{nextStageLabel(
 											selectedApplication.currentStage,
 										)}
 									</p>
+
 									<p className="mt-1 text-sm text-slate-600">
 										{stageEta(
 											selectedApplication.currentStage,
@@ -251,6 +288,7 @@ function JobDiscovery() {
 									<p className="text-sm font-semibold text-slate-950">
 										Summary
 									</p>
+
 									<RichTextViewer
 										content={selectedJob.summary}
 										className="mt-2"
@@ -263,6 +301,7 @@ function JobDiscovery() {
 									<p className="text-sm font-semibold text-slate-950">
 										Responsibilities
 									</p>
+
 									<RichTextViewer
 										content={selectedJob.responsibilities}
 										className="mt-2"
@@ -275,6 +314,7 @@ function JobDiscovery() {
 									<p className="text-sm font-semibold text-slate-950">
 										Required Qualifications
 									</p>
+
 									<RichTextViewer
 										content={
 											selectedJob.requiredQualifications
@@ -289,6 +329,7 @@ function JobDiscovery() {
 									<p className="text-sm font-semibold text-slate-950">
 										Preferred Qualifications
 									</p>
+
 									<RichTextViewer
 										content={
 											selectedJob.preferredQualifications
@@ -302,6 +343,7 @@ function JobDiscovery() {
 								<p className="text-sm font-semibold text-slate-950">
 									Skills in this role
 								</p>
+
 								<div className="mt-2 flex flex-wrap gap-2">
 									{selectedJob.skills?.map((skill) => (
 										<span
@@ -312,13 +354,14 @@ function JobDiscovery() {
 										</span>
 									))}
 								</div>
-								{selectedSkills?.matched && (
+
+								{selectedSkills?.matched ? (
 									<p className="mt-3 text-sm text-slate-600">
 										Matched:{" "}
 										{selectedSkills.matched.join(", ") ||
 											"None yet"}
 									</p>
-								)}
+								) : null}
 							</div>
 
 							<div className="mt-6 flex gap-3">
@@ -330,6 +373,7 @@ function JobDiscovery() {
 										? "Already applied"
 										: "Easy apply"}
 								</Button>
+
 								<Link
 									to={ROUTES.APPLICANT_JOB_DETAIL(
 										selectedJob.id,

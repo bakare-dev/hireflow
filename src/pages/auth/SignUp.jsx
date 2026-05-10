@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { useDispatch } from "react-redux";
 import {
 	useRegisterMutation,
 	useVerifyOtpMutation,
@@ -10,6 +11,7 @@ import { ROUTES } from "../../constants/routes";
 import useToast from "../../hooks/useToast";
 import { toRegistrationPayload } from "../../utils/api";
 import { apiHandler } from "../../services/api";
+import { setAuthenticatedUser } from "../../store/slices/authSlice";
 import AuthHeader from "./components/AuthHeader";
 import SignUpRoleChoice from "./components/SignUpRoleChoice";
 import ApplicantSignUpForm from "./components/ApplicantSignUpForm";
@@ -31,6 +33,7 @@ const ROLE = Object.freeze({
 });
 
 function SignUp() {
+	const dispatch = useDispatch();
 	const navigate = useNavigate();
 	const toast = useToast();
 	const [register, { isLoading: registering }] = useRegisterMutation();
@@ -82,12 +85,19 @@ function SignUp() {
 			toast.success(response?.message ?? "Email verified successfully.");
 
 			try {
-				await login({
+				const user = await login({
 					email: formData.email,
 					password: formData.password,
 				}).unwrap();
+				dispatch(setAuthenticatedUser(user));
+
 				if (role === ROLE.APPLICANT) {
-					navigate(ROUTES.APPLICANT.JOBS);
+					const hasResume = !!user.resumeUrl;
+					if (!hasResume) {
+						navigate(`${ROUTES.APPLICANT_PROFILE}?tab=resume`);
+						return;
+					}
+					navigate(ROUTES.APPLICANT_JOBS);
 					return;
 				}
 

@@ -4,13 +4,15 @@ import { useSelector } from "react-redux";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
 import Card, { CardBody, CardHeader } from "../../components/common/Card";
+import EmptyState from "../../components/common/EmptyState";
 import Input from "../../components/common/Input";
 import PageHeader from "../../components/common/PageHeader";
+import Select from "../../components/common/Select";
 import { JOB_STATUS_LABELS } from "../../constants/jobStatus";
 import { ROUTES } from "../../constants/routes";
 import { selectAuthRole, selectAuthUser } from "../../store/slices/authSlice";
 import { selectApplications } from "../../store/slices/applicationsSlice";
-import { selectJobs } from "../../store/slices/jobsSlice";
+import { useGetCompanyJobsQuery } from "../../api/jobsApi";
 import { formatDate } from "../../utils/date";
 import {
 	avgAiMatchForJob,
@@ -22,10 +24,21 @@ import {
 function JobListingsPage() {
 	const role = useSelector(selectAuthRole);
 	const user = useSelector(selectAuthUser);
-	const jobs = useSelector(selectJobs);
 	const applications = useSelector(selectApplications);
 	const [query, setQuery] = useState("");
+	const [status, setStatus] = useState("");
 	const [view, setView] = useState("table");
+
+	const { data: apiResponse, isLoading: isJobsLoading } =
+		useGetCompanyJobsQuery({
+			status: status || undefined,
+			page: 0,
+			size: 50,
+		});
+
+	const jobs = useMemo(() => {
+		return apiResponse?.data?.content || [];
+	}, [apiResponse?.data?.content]);
 
 	const users = getUserMap();
 	const scopedJobs = useMemo(
@@ -81,6 +94,20 @@ function JobListingsPage() {
 						onChange={(event) => setQuery(event.target.value)}
 						placeholder="Title or location"
 					/>
+					<Select
+						label="Status"
+						value={status}
+						onChange={(event) => setStatus(event.target.value)}
+						options={[
+							{ value: "", label: "All statuses" },
+							...Object.entries(JOB_STATUS_LABELS).map(
+								([value, label]) => ({
+									value,
+									label,
+								}),
+							),
+						]}
+					/>
 				</CardBody>
 			</Card>
 
@@ -92,92 +119,114 @@ function JobListingsPage() {
 						</h2>
 					</CardHeader>
 					<div className="overflow-x-auto">
-						<table className="min-w-full text-sm">
-							<thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-								<tr>
-									<Th>Job title</Th>
-									<Th>Hiring manager</Th>
-									<Th>Applicants</Th>
-									<Th>Avg AI match</Th>
-									<Th>Status</Th>
-									<Th>Created</Th>
-									<Th>Actions</Th>
-								</tr>
-							</thead>
-							<tbody>
-								{filtered.map((job) => {
-									const applicantCount = scopedApps.filter(
-										(app) => app.jobListingId === job.id,
-									).length;
-									const ai = avgAiMatchForJob(
-										job.id,
-										scopedApps,
-									);
-									return (
-										<tr
-											key={job.id}
-											className="border-t border-slate-100 text-slate-700"
-										>
-											<Td>
-												<p className="font-medium text-slate-900">
-													{job.title}
-												</p>
-												<p className="text-xs text-slate-500">
-													{job.location}
-												</p>
-											</Td>
-											<Td>
-												{users.get(job.hiringManagerId)
-													?.name ?? "Unassigned"}
-											</Td>
-											<Td>{applicantCount}</Td>
-											<Td>{ai || "-"}</Td>
-											<Td>
-												<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
-													{
-														JOB_STATUS_LABELS[
-															job.status
-														]
-													}
-												</Badge>
-											</Td>
-											<Td>{formatDate(job.createdAt)}</Td>
-											<Td>
-												<div className="flex gap-2">
-													<Link
-														to={ROUTES.JOB_LISTING_EDIT(
-															job.id,
-														)}
-													>
-														<Button
-															variant="secondary"
-															size="sm"
+						{isJobsLoading ? (
+							<EmptyState
+								title="Loading job listings"
+								description="Fetching your company's job listings..."
+							/>
+						) : filtered.length ? (
+							<table className="min-w-full text-sm">
+								<thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+									<tr>
+										<Th>Job title</Th>
+										<Th>Hiring manager</Th>
+										<Th>Applicants</Th>
+										<Th>Avg AI match</Th>
+										<Th>Status</Th>
+										<Th>Created</Th>
+										<Th>Actions</Th>
+									</tr>
+								</thead>
+								<tbody>
+									{filtered.map((job) => {
+										const applicantCount =
+											scopedApps.filter(
+												(app) =>
+													app.jobListingId === job.id,
+											).length;
+										const ai = avgAiMatchForJob(
+											job.id,
+											scopedApps,
+										);
+										return (
+											<tr
+												key={job.id}
+												className="border-t border-slate-100 text-slate-700"
+											>
+												<Td>
+													<p className="font-medium text-slate-900">
+														{job.title}
+													</p>
+													<p className="text-xs text-slate-500">
+														{job.location}
+													</p>
+												</Td>
+												<Td>
+													{users.get(
+														job.hiringManagerId,
+													)?.name ?? "Unassigned"}
+												</Td>
+												<Td>{applicantCount}</Td>
+												<Td>{ai || "-"}</Td>
+												<Td>
+													<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
+														{
+															JOB_STATUS_LABELS[
+																job.status
+															]
+														}
+													</Badge>
+												</Td>
+												<Td>
+													{formatDate(job.createdAt)}
+												</Td>
+												<Td>
+													<div className="flex gap-2">
+														<Link
+															to={ROUTES.JOB_LISTING_EDIT(
+																job.id,
+															)}
 														>
-															Edit
-														</Button>
-													</Link>
-													<Link
-														to={ROUTES.JOB_DETAIL(
-															job.id,
-														)}
-													>
-														<Button
-															variant="secondary"
-															size="sm"
+															<Button
+																variant="secondary"
+																size="sm"
+															>
+																Edit
+															</Button>
+														</Link>
+														<Link
+															to={ROUTES.JOB_DETAIL(
+																job.id,
+															)}
 														>
-															View analytics
-														</Button>
-													</Link>
-												</div>
-											</Td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
+															<Button
+																variant="secondary"
+																size="sm"
+															>
+																View analytics
+															</Button>
+														</Link>
+													</div>
+												</Td>
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
+						) : (
+							<EmptyState
+								title="No job listings found"
+								description="Try adjusting your search or status filter."
+							/>
+						)}
 					</div>
 				</Card>
-			) : (
+			) : isJobsLoading ? (
+				<EmptyState
+					title="Loading job listings"
+					description="Fetching your company's job listings..."
+				/>
+			) : filtered.length ? (
 				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 					{filtered.map((job) => {
 						const applicantCount = scopedApps.filter(
@@ -217,6 +266,11 @@ function JobListingsPage() {
 						);
 					})}
 				</div>
+			) : (
+				<EmptyState
+					title="No job listings found"
+					description="Try adjusting your search or status filter."
+				/>
 			)}
 		</div>
 	);

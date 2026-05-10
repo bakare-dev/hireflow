@@ -5,10 +5,10 @@ import { baseApi } from "./baseApi";
 export const jobsApi = baseApi.injectEndpoints({
 	endpoints: (builder) => ({
 		getOpenJobs: builder.query({
-			async queryFn({ page = 0, size = 10 } = {}) {
+			async queryFn({ page = 0, size = 10, title, type } = {}) {
 				try {
 					const response = await apiHandler.get("/jobs", {
-						params: { page, size },
+						params: { page, size, title, type },
 					});
 					return { data: response };
 				} catch (err) {
@@ -70,6 +70,19 @@ export const jobsApi = baseApi.injectEndpoints({
 			},
 			providesTags: ["Jobs"],
 		}),
+		getCompanyJobs: builder.query({
+			async queryFn({ status, page = 0, size = 10 } = {}) {
+				try {
+					const response = await apiHandler.get("/jobs/company", {
+						params: { status, page, size },
+					});
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			providesTags: ["Jobs"],
+		}),
 		searchSkills: builder.query({
 			async queryFn(query) {
 				try {
@@ -105,6 +118,7 @@ export const {
 	useUpdateJobMutation,
 	useGetJobQuery,
 	useGetJobsByCompanyQuery,
+	useGetCompanyJobsQuery,
 	useSearchSkillsQuery,
 	useCreateSkillMutation,
 } = jobsApi;

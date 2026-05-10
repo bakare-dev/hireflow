@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import Button from "../../components/common/Button";
 import SkillTagEditor from "../../components/common/SkillTagEditor";
@@ -7,7 +8,26 @@ import { selectAuthUser } from "../../store/slices/authSlice";
 import { parseResume } from "../../utils/resumeParser";
 import { cn } from "../../utils/classnames";
 import RichTextEditor from "../../components/editor/RichTextEditor";
+import {
+	useUpsertResumeProfileMutation,
+	useGetResumeProfileQuery,
+} from "../../api/resumeApi";
 
+function useSafeLocation() {
+	try {
+		return useLocation();
+	} catch {
+		return { search: "", state: null };
+	}
+}
+
+function formatDate(dateStr) {
+	if (!dateStr || dateStr === "Present") return undefined;
+	if (dateStr.match(/^\d{4}-\d{2}$/)) {
+		return `${dateStr}-01`;
+	}
+	return dateStr;
+}
 function buildProfile(user) {
 	return {
 		name: user?.name ?? "",
@@ -32,28 +52,86 @@ function buildResumeData(user) {
 
 function Profile() {
 	const user = useSelector(selectAuthUser);
-	const [tab, setTab] = useState("profile");
+	const location = useSafeLocation();
+	const params = new URLSearchParams(location.search);
+	const initialTab =
+		location.state?.initialTab ?? params.get("tab") ?? "profile";
+	const [tab, setTab] = useState(
+		initialTab === "resume" ? "resume" : "profile",
+	);
+
 	const [editing, setEditing] = useState(false);
+	const [editingResume, setEditingResume] = useState(false);
+
+	const {
+		data: resumeProfile,
+		isLoading: isLoadingResume,
+		error: resumeError,
+	} = useGetResumeProfileQuery();
 	const [isParsing, setIsParsing] = useState(false);
 	const [parseError, setParseError] = useState(null);
+	const [saveError, setSaveError] = useState(null);
+	const [saveSuccess, setSaveSuccess] = useState(null);
+
 	const fileRef = useRef(null);
 
 	const [profile, setProfile] = useState(() => buildProfile(user));
+
 	const [resumeData, setResumeData] = useState(() => buildResumeData(user));
 
+	const [saveResume, { isLoading: isSaving }] =
+		useUpsertResumeProfileMutation();
+
+	const [resumeLoaded, setResumeLoaded] = useState(false);
+
+	useEffect(() => {
+		if (resumeProfile && !resumeLoaded) {
+			setResumeData({
+				phoneNumber: resumeProfile.phoneNumber || "",
+				email: resumeProfile.email || user?.email || "",
+				linkedIn: resumeProfile.linkedIn || "",
+				summary: resumeProfile.summary || "",
+				skills: resumeProfile.skillNames || [],
+				jobExperience:
+					resumeProfile.workExperiences?.map((exp) => ({
+						id: crypto.randomUUID(),
+						companyName: exp.companyName || "",
+						jobTitle: exp.jobTitle || "",
+						startDate: exp.startDate
+							? exp.startDate.substring(0, 7)
+							: "", // YYYY-MM
+						endDate: exp.endDate ? exp.endDate.substring(0, 7) : "",
+						experience: exp.experience || "<p></p>",
+					})) || [],
+			});
+			setResumeLoaded(true);
+		}
+	}, [resumeProfile, user?.email, resumeLoaded]);
+
 	function updateProfile(field, value) {
-		setProfile((p) => ({ ...p, [field]: value }));
+		setProfile((p) => ({
+			...p,
+			[field]: value,
+		}));
 	}
 
 	function updateResume(field, value) {
-		setResumeData((r) => ({ ...r, [field]: value }));
+		setResumeData((r) => ({
+			...r,
+			[field]: value,
+		}));
 	}
 
 	function updateExperience(id, field, value) {
 		setResumeData((r) => ({
 			...r,
 			jobExperience: r.jobExperience.map((e) =>
-				e.id === id ? { ...e, [field]: value } : e,
+				e.id === id
+					? {
+							...e,
+							[field]: value,
+						}
+					: e,
 			),
 		}));
 	}
@@ -84,11 +162,15 @@ function Profile() {
 
 	async function handleUpload(e) {
 		const file = e.target.files?.[0];
+
 		if (!file) return;
+
 		setIsParsing(true);
 		setParseError(null);
+
 		try {
 			const parsed = await parseResume(file);
+
 			setResumeData(parsed);
 			setTab("resume");
 		} catch {
@@ -97,7 +179,57 @@ function Profile() {
 			);
 		} finally {
 			setIsParsing(false);
-			if (fileRef.current) fileRef.current.value = "";
+
+			if (fileRef.current) {
+				fileRef.current.value = "";
+			}
+		}
+	}
+
+	async function handleSaveResume() {
+		setSaveError(null);
+		setSaveSuccess(null);
+
+		try {
+			const skillNames = resumeData.skills
+				?.filter(Boolean)
+				.map((skill) =>
+					typeof skill === "string" ? skill : skill.name,
+				)
+				.filter(Boolean);
+
+			const payload = {
+				phoneNumber: resumeData.phoneNumber || undefined,
+				linkedIn: resumeData.linkedIn || undefined,
+				summary: resumeData.summary || undefined,
+				skillNames: skillNames.length > 0 ? skillNames : undefined,
+				workExperiences: resumeData.jobExperience.map(
+					({
+						companyName,
+						jobTitle,
+						startDate,
+						endDate,
+						experience,
+					}) => ({
+						companyName,
+						jobTitle,
+						startDate: formatDate(startDate),
+						endDate: formatDate(endDate),
+						experience,
+					}),
+				),
+			};
+
+			await saveResume(payload).unwrap();
+
+			setSaveSuccess("Resume saved successfully.");
+			setEditingResume(false);
+		} catch (err) {
+			setSaveError(
+				err?.data?.message ||
+					err?.error ||
+					"Unable to save resume. Please try again.",
+			);
 		}
 	}
 
@@ -109,9 +241,11 @@ function Profile() {
 						<p className="text-sm font-medium text-slate-500">
 							Profile
 						</p>
+
 						<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
 							{profile.name || "Your profile"}
 						</h1>
+
 						<p className="mt-2 text-sm text-slate-600">
 							{profile.email}
 							{profile.location ? ` · ${profile.location}` : ""}
@@ -119,11 +253,13 @@ function Profile() {
 					</div>
 
 					<div className="flex items-center gap-3">
-						{isParsing && (
+						{isParsing ? (
 							<span className="flex items-center gap-1.5 text-sm text-slate-500">
-								<Spinner className="h-4 w-4" /> Parsing…
+								<Spinner className="h-4 w-4" />
+								Parsing…
 							</span>
-						)}
+						) : null}
+
 						<Button
 							variant="secondary"
 							size="sm"
@@ -134,6 +270,7 @@ function Profile() {
 								? "Re-upload resume"
 								: "Upload resume (PDF)"}
 						</Button>
+
 						<input
 							ref={fileRef}
 							type="file"
@@ -144,16 +281,17 @@ function Profile() {
 					</div>
 				</div>
 
-				{parseError && (
+				{parseError ? (
 					<p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
 						{parseError}
 					</p>
-				)}
+				) : null}
 
 				<div className="mt-5 flex border-b border-slate-200">
 					{["profile", "resume"].map((t) => (
 						<button
 							key={t}
+							type="button"
 							onClick={() => setTab(t)}
 							className={cn(
 								"px-4 py-2.5 text-sm font-medium capitalize transition-colors",
@@ -168,7 +306,7 @@ function Profile() {
 				</div>
 			</section>
 
-			{tab === "profile" && (
+			{tab === "profile" ? (
 				<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
 					<main className="space-y-5">
 						<Panel
@@ -182,6 +320,7 @@ function Profile() {
 										>
 											Save
 										</Button>
+
 										<Button
 											size="sm"
 											variant="secondary"
@@ -210,6 +349,7 @@ function Profile() {
 											updateProfile("name", v)
 										}
 									/>
+
 									<Field
 										label="Email"
 										value={profile.email}
@@ -217,6 +357,7 @@ function Profile() {
 											updateProfile("email", v)
 										}
 									/>
+
 									<Field
 										label="Location"
 										value={profile.location}
@@ -224,6 +365,7 @@ function Profile() {
 											updateProfile("location", v)
 										}
 									/>
+
 									<Field
 										label="Years of experience"
 										value={profile.yearsOfExperience}
@@ -241,14 +383,17 @@ function Profile() {
 										label="Name"
 										value={profile.name || "—"}
 									/>
+
 									<Detail
 										label="Email"
 										value={profile.email || "—"}
 									/>
+
 									<Detail
 										label="Location"
 										value={profile.location || "—"}
 									/>
+
 									<Detail
 										label="Experience"
 										value={
@@ -296,112 +441,331 @@ function Profile() {
 						</Panel>
 					</aside>
 				</div>
-			)}
+			) : null}
 
-			{tab === "resume" && (
+			{tab === "resume" ? (
 				<div className="space-y-5">
-					{resumeData.jobExperience.length === 0 &&
-						!resumeData.summary &&
-						resumeData.skills.length === 0 && (
-							<div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
-								<p className="text-sm font-medium text-slate-600">
-									No resume data yet
+					<section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+						<div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+							<div>
+								<p className="text-sm font-medium text-slate-500">
+									Resume
 								</p>
-								<p className="mt-1 text-sm text-slate-500">
-									Upload a PDF to auto-fill this section, or
-									add details manually below.
-								</p>
+
+								<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
+									Your resume
+								</h1>
 							</div>
-						)}
 
-					<Panel title="Contact info">
-						<div className="grid gap-3 sm:grid-cols-2">
-							<Field
-								label="Phone number"
-								value={resumeData.phoneNumber}
-								onChange={(v) => updateResume("phoneNumber", v)}
-							/>
-							<Field
-								label="Email"
-								value={resumeData.email}
-								onChange={(v) => updateResume("email", v)}
-							/>
-							<Field
-								label="LinkedIn URL"
-								value={resumeData.linkedIn}
-								onChange={(v) => updateResume("linkedIn", v)}
-								className="sm:col-span-2"
-							/>
+							<div className="flex items-center gap-3">
+								{editingResume ? (
+									<div className="flex gap-2">
+										<Button
+											onClick={handleSaveResume}
+											disabled={isSaving}
+										>
+											{isSaving ? "Saving…" : "Save"}
+										</Button>
+
+										<Button
+											variant="secondary"
+											onClick={() =>
+												setEditingResume(false)
+											}
+										>
+											Cancel
+										</Button>
+									</div>
+								) : (
+									<Button
+										variant="secondary"
+										onClick={() => setEditingResume(true)}
+									>
+										Edit resume
+									</Button>
+								)}
+							</div>
 						</div>
-					</Panel>
+					</section>
 
-					<Panel title="Summary">
-						<AreaField
-							label="Professional summary"
-							value={resumeData.summary}
-							onChange={(v) => updateResume("summary", v)}
-						/>
-					</Panel>
+					{editingResume ? (
+						<div className="space-y-5">
+							{resumeData.jobExperience.length === 0 &&
+							!resumeData.summary &&
+							resumeData.skills.length === 0 ? (
+								<div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
+									<p className="text-sm font-medium text-slate-600">
+										No resume data yet
+									</p>
 
-					<Panel title="Skills">
-						<p className="mb-2 text-xs text-slate-500">
-							Type a skill and press Enter or comma to add.
-							Backspace removes the last tag.
-						</p>
-						<SkillTagEditor
-							skills={resumeData.skills}
-							onChange={(skills) =>
-								updateResume("skills", skills)
-							}
-						/>
-					</Panel>
+									<p className="mt-1 text-sm text-slate-500">
+										Upload a PDF to auto-fill this section,
+										or add details manually below.
+									</p>
+								</div>
+							) : null}
 
-					<Panel
-						title="Job experience"
-						action={
-							<Button
-								size="sm"
-								variant="secondary"
-								onClick={addExperience}
-							>
-								+ Add entry
-							</Button>
-						}
-					>
-						{resumeData.jobExperience.length === 0 ? (
-							<p className="text-sm text-slate-500">
-								No entries yet. Click "+ Add entry" or upload a
-								resume.
-							</p>
-						) : (
-							<div className="space-y-6">
-								{resumeData.jobExperience.map((entry, idx) => (
-									<ExperienceEntry
-										key={entry.id}
-										entry={entry}
-										index={idx}
-										onChange={(field, value) =>
-											updateExperience(
-												entry.id,
-												field,
-												value,
-											)
-										}
-										onRemove={() =>
-											removeExperience(entry.id)
+							<Panel title="Contact info">
+								<div className="grid gap-3 sm:grid-cols-2">
+									<Field
+										label="Phone number"
+										value={resumeData.phoneNumber}
+										onChange={(v) =>
+											updateResume("phoneNumber", v)
 										}
 									/>
-								))}
-							</div>
-						)}
-					</Panel>
 
-					<div className="flex justify-end">
-						<Button>Save resume</Button>
-					</div>
+									<Field
+										label="Email"
+										value={resumeData.email}
+										onChange={(v) =>
+											updateResume("email", v)
+										}
+									/>
+
+									<Field
+										label="LinkedIn URL"
+										value={resumeData.linkedIn}
+										onChange={(v) =>
+											updateResume("linkedIn", v)
+										}
+										className="sm:col-span-2"
+									/>
+								</div>
+							</Panel>
+
+							<Panel title="Summary">
+								<AreaField
+									label="Professional summary"
+									value={resumeData.summary}
+									onChange={(v) => updateResume("summary", v)}
+								/>
+							</Panel>
+
+							<Panel title="Skills">
+								<p className="mb-2 text-xs text-slate-500">
+									Type a skill and press Enter or comma to
+									add. Backspace removes the last tag.
+								</p>
+
+								<SkillTagEditor
+									skills={resumeData.skills}
+									onChange={(skills) =>
+										updateResume("skills", skills)
+									}
+								/>
+							</Panel>
+
+							<Panel
+								title="Job experience"
+								action={
+									<Button
+										size="sm"
+										variant="secondary"
+										onClick={addExperience}
+									>
+										+ Add entry
+									</Button>
+								}
+							>
+								{resumeData.jobExperience.length === 0 ? (
+									<p className="text-sm text-slate-500">
+										No entries yet. Click "+ Add entry" or
+										upload a resume.
+									</p>
+								) : (
+									<div className="space-y-6">
+										{resumeData.jobExperience.map(
+											(entry, idx) => (
+												<ExperienceEntry
+													key={entry.id}
+													entry={entry}
+													index={idx}
+													onChange={(field, value) =>
+														updateExperience(
+															entry.id,
+															field,
+															value,
+														)
+													}
+													onRemove={() =>
+														removeExperience(
+															entry.id,
+														)
+													}
+												/>
+											),
+										)}
+									</div>
+								)}
+							</Panel>
+
+							{saveSuccess ? (
+								<p className="text-sm font-medium text-emerald-700">
+									{saveSuccess}
+								</p>
+							) : null}
+
+							{saveError ? (
+								<p className="text-sm font-medium text-rose-700">
+									{saveError}
+								</p>
+							) : null}
+						</div>
+					) : (
+						<div className="space-y-5">
+							{isLoadingResume ? (
+								<div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+									<div className="flex items-center gap-3">
+										<Spinner className="h-5 w-5" />
+										<p className="text-sm text-slate-600">
+											Loading resume...
+										</p>
+									</div>
+								</div>
+							) : resumeError ? (
+								<div className="rounded-xl border border-rose-200 bg-rose-50 p-6 shadow-sm">
+									<p className="text-sm text-rose-700">
+										Failed to load resume. Please try again.
+									</p>
+								</div>
+							) : resumeData.jobExperience.length === 0 &&
+							  !resumeData.summary &&
+							  resumeData.skills.length === 0 ? (
+								<div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
+									<p className="text-sm font-medium text-slate-600">
+										No resume data yet
+									</p>
+
+									<p className="mt-1 text-sm text-slate-500">
+										Click "Edit resume" to add your details.
+									</p>
+								</div>
+							) : (
+								<>
+									{resumeData.phoneNumber ||
+									resumeData.email ||
+									resumeData.linkedIn ? (
+										<Panel title="Contact info">
+											<dl className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
+												{resumeData.phoneNumber && (
+													<Detail
+														label="Phone"
+														value={
+															resumeData.phoneNumber
+														}
+													/>
+												)}
+												{resumeData.email && (
+													<Detail
+														label="Email"
+														value={resumeData.email}
+													/>
+												)}
+												{resumeData.linkedIn && (
+													<Detail
+														label="LinkedIn"
+														value={
+															resumeData.linkedIn
+														}
+														className="sm:col-span-2"
+													/>
+												)}
+											</dl>
+										</Panel>
+									) : null}
+
+									{resumeData.summary && (
+										<Panel title="Summary">
+											<p className="text-sm leading-6 text-slate-700">
+												{resumeData.summary}
+											</p>
+										</Panel>
+									)}
+
+									{resumeData.skills.length > 0 && (
+										<Panel title="Skills">
+											<div className="flex flex-wrap gap-2">
+												{resumeData.skills.map(
+													(skill, idx) => (
+														<span
+															key={idx}
+															className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+														>
+															{typeof skill ===
+															"string"
+																? skill
+																: skill.name}
+														</span>
+													),
+												)}
+											</div>
+										</Panel>
+									)}
+
+									{resumeData.jobExperience.length > 0 && (
+										<Panel title="Job experience">
+											<div className="space-y-6">
+												{resumeData.jobExperience.map(
+													(entry) => (
+														<div
+															key={entry.id}
+															className="space-y-2"
+														>
+															<div className="flex items-center justify-between">
+																<h3 className="text-lg font-semibold text-slate-950">
+																	{
+																		entry.jobTitle
+																	}{" "}
+																	at{" "}
+																	{
+																		entry.companyName
+																	}
+																</h3>
+																<p className="text-sm text-slate-500">
+																	{
+																		entry.startDate
+																	}{" "}
+																	-{" "}
+																	{entry.endDate ||
+																		"Present"}
+																</p>
+															</div>
+															<div
+																className="text-sm leading-6 text-slate-700"
+																dangerouslySetInnerHTML={{
+																	__html: entry.experience,
+																}}
+															/>
+														</div>
+													),
+												)}
+											</div>
+										</Panel>
+									)}
+								</>
+							)}
+						</div>
+					)}
 				</div>
-			)}
+			) : null}
 		</div>
+	);
+}
+
+function Panel({ title, action, children }) {
+	return (
+		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+			<div className="mb-4 flex items-center justify-between gap-3">
+				<h2 className="text-lg font-semibold text-slate-950">
+					{title}
+				</h2>
+
+				{action}
+			</div>
+
+			{children}
+		</section>
 	);
 }
 
@@ -412,6 +776,7 @@ function ExperienceEntry({ entry, index, onChange, onRemove }) {
 				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
 					Entry {index + 1}
 				</p>
+
 				<button
 					type="button"
 					onClick={onRemove}
@@ -427,17 +792,20 @@ function ExperienceEntry({ entry, index, onChange, onRemove }) {
 					value={entry.companyName}
 					onChange={(v) => onChange("companyName", v)}
 				/>
+
 				<Field
 					label="Job title"
 					value={entry.jobTitle}
 					onChange={(v) => onChange("jobTitle", v)}
 				/>
+
 				<Field
 					label="Start date"
 					placeholder="e.g. 2022-03"
 					value={entry.startDate}
 					onChange={(v) => onChange("startDate", v)}
 				/>
+
 				<Field
 					label="End date"
 					placeholder="e.g. 2024-01 or Present"
@@ -450,6 +818,7 @@ function ExperienceEntry({ entry, index, onChange, onRemove }) {
 				<p className="mb-1.5 text-sm font-medium text-slate-800">
 					Description
 				</p>
+
 				<RichTextEditor
 					value={entry.experience}
 					onChange={(v) => onChange("experience", v)}
@@ -460,24 +829,11 @@ function ExperienceEntry({ entry, index, onChange, onRemove }) {
 	);
 }
 
-function Panel({ title, action, children }) {
-	return (
-		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-			<div className="flex items-center justify-between">
-				<h2 className="text-lg font-semibold text-slate-950">
-					{title}
-				</h2>
-				{action}
-			</div>
-			<div className="mt-4">{children}</div>
-		</section>
-	);
-}
-
 function Field({ label, value, onChange, placeholder, className }) {
 	return (
 		<label className={cn("block", className)}>
 			<span className="text-sm font-medium text-slate-800">{label}</span>
+
 			<input
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
@@ -492,6 +848,7 @@ function AreaField({ label, value, onChange }) {
 	return (
 		<label className="block">
 			<span className="text-sm font-medium text-slate-800">{label}</span>
+
 			<textarea
 				value={value}
 				onChange={(e) => onChange(e.target.value)}

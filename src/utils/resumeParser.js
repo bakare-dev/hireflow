@@ -411,6 +411,78 @@ function parseExperience(expLines) {
 	}));
 }
 
+const DEGREE_RE =
+	/\b(bachelor|master|phd|ph\.d|doctorate|doctor|associate|diploma|certificate|b\.sc|m\.sc|b\.eng|m\.eng|mba|b\.a|m\.a|b\.s|m\.s|hnd|ond|bsc|msc|b\.tech|m\.tech)\b/i;
+
+function parseEducation(eduLines) {
+	if (!eduLines.length) return [];
+
+	const groups = [];
+	let pending = [];
+
+	for (const line of eduLines) {
+		const dateMatch = line.match(DATE_RANGE_LINE_RE);
+		if (dateMatch) {
+			const { startDate, endDate } = splitDateRange(dateMatch[0]);
+			const beforeDate = line
+				.slice(0, dateMatch.index)
+				.replace(/[|\s,–—-]+$/, "")
+				.trim();
+			if (beforeDate) pending.push(beforeDate);
+			groups.push({ lines: pending, startDate, endDate });
+			pending = [];
+		} else {
+			pending.push(line);
+		}
+	}
+
+	if (pending.length) {
+		groups.push({ lines: pending, startDate: "", endDate: "" });
+	}
+
+	return groups
+		.filter((g) => g.lines.length > 0)
+		.map(({ lines, startDate, endDate }) => {
+			let degree = "";
+			let institutionName = "";
+
+			if (lines.length === 1) {
+				const [line] = lines;
+				const sep = line.match(/^(.+?)\s*[|–—]\s*(.+)$/);
+				if (sep) {
+					if (DEGREE_RE.test(sep[1])) {
+						degree = sep[1].trim();
+						institutionName = sep[2].trim();
+					} else {
+						institutionName = sep[1].trim();
+						degree = sep[2].trim();
+					}
+				} else if (DEGREE_RE.test(line)) {
+					degree = line;
+				} else {
+					institutionName = line;
+				}
+			} else {
+				const degreeIdx = lines.findIndex((l) => DEGREE_RE.test(l));
+				if (degreeIdx !== -1) {
+					degree = lines[degreeIdx];
+					institutionName = lines.find((_, i) => i !== degreeIdx) || "";
+				} else {
+					institutionName = lines[0];
+					degree = lines.slice(1).join(", ");
+				}
+			}
+
+			return {
+				id: crypto.randomUUID(),
+				institutionName,
+				degree,
+				startDate,
+				endDate,
+			};
+		});
+}
+
 function wrapHtml(text) {
 	const lines = text
 		.split("\n")
@@ -429,5 +501,6 @@ export async function parseResume(file) {
 		summary: sections.summary.join(" ").trim(),
 		skills: parseSkills(sections.skills, text),
 		jobExperience: parseExperience(sections.experience),
+		educations: parseEducation(sections.education),
 	};
 }

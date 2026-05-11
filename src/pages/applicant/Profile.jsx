@@ -11,6 +11,8 @@ import RichTextEditor from "../../components/editor/RichTextEditor";
 import {
 	useUpsertResumeProfileMutation,
 	useGetResumeProfileQuery,
+	useGetUploadSignatureMutation,
+	useUpdateResumePdfUrlMutation,
 } from "../../api/resumeApi";
 
 function useSafeLocation() {
@@ -23,9 +25,8 @@ function useSafeLocation() {
 
 function formatDate(dateStr) {
 	if (!dateStr || dateStr === "Present") return undefined;
-	if (dateStr.match(/^\d{4}-\d{2}$/)) {
-		return `${dateStr}-01`;
-	}
+	if (dateStr.match(/^\d{4}$/)) return `${dateStr}-01-01`;
+	if (dateStr.match(/^\d{4}-\d{2}$/)) return `${dateStr}-01`;
 	return dateStr;
 }
 function buildProfile(user) {
@@ -47,6 +48,7 @@ function buildResumeData(user) {
 		summary: "",
 		skills: user?.skills ?? [],
 		jobExperience: [],
+		educations: [],
 	};
 }
 
@@ -70,6 +72,7 @@ function Profile() {
 	} = useGetResumeProfileQuery();
 	const [isParsing, setIsParsing] = useState(false);
 	const [parseError, setParseError] = useState(null);
+	const [uploadError, setUploadError] = useState(null);
 	const [saveError, setSaveError] = useState(null);
 	const [saveSuccess, setSaveSuccess] = useState(null);
 
@@ -81,6 +84,8 @@ function Profile() {
 
 	const [saveResume, { isLoading: isSaving }] =
 		useUpsertResumeProfileMutation();
+	const [getUploadSignature] = useGetUploadSignatureMutation();
+	const [updatePdfUrl] = useUpdateResumePdfUrlMutation();
 
 	const [resumeLoaded, setResumeLoaded] = useState(false);
 
@@ -91,7 +96,7 @@ function Profile() {
 				email: resumeProfile.email || user?.email || "",
 				linkedIn: resumeProfile.linkedIn || "",
 				summary: resumeProfile.summary || "",
-				skills: resumeProfile.skillNames || [],
+				skills: resumeProfile.skills?.map((s) => s.name) || [],
 				jobExperience:
 					resumeProfile.workExperiences?.map((exp) => ({
 						id: crypto.randomUUID(),
@@ -99,9 +104,19 @@ function Profile() {
 						jobTitle: exp.jobTitle || "",
 						startDate: exp.startDate
 							? exp.startDate.substring(0, 7)
-							: "", // YYYY-MM
+							: "",
 						endDate: exp.endDate ? exp.endDate.substring(0, 7) : "",
 						experience: exp.experience || "<p></p>",
+					})) || [],
+				educations:
+					resumeProfile.educations?.map((edu) => ({
+						id: crypto.randomUUID(),
+						institutionName: edu.institutionName || "",
+						degree: edu.degree || "",
+						startDate: edu.startDate
+							? edu.startDate.substring(0, 4)
+							: "",
+						endDate: edu.endDate ? edu.endDate.substring(0, 4) : "",
 					})) || [],
 			});
 			setResumeLoaded(true);
@@ -160,29 +175,85 @@ function Profile() {
 		}));
 	}
 
+	function addEducation() {
+		setResumeData((r) => ({
+			...r,
+			educations: [
+				...r.educations,
+				{
+					id: crypto.randomUUID(),
+					institutionName: "",
+					degree: "",
+					startDate: "",
+					endDate: "",
+				},
+			],
+		}));
+	}
+
+	function removeEducation(id) {
+		setResumeData((r) => ({
+			...r,
+			educations: r.educations.filter((e) => e.id !== id),
+		}));
+	}
+
+	function updateEducation(id, field, value) {
+		setResumeData((r) => ({
+			...r,
+			educations: r.educations.map((e) =>
+				e.id === id ? { ...e, [field]: value } : e,
+			),
+		}));
+	}
+
 	async function handleUpload(e) {
 		const file = e.target.files?.[0];
-
 		if (!file) return;
 
 		setIsParsing(true);
 		setParseError(null);
+		setUploadError(null);
 
-		try {
-			const parsed = await parseResume(file);
+		const [parseResult, cloudinaryResult] = await Promise.allSettled([
+			parseResume(file),
+			getUploadSignature()
+				.unwrap()
+				.then((sig) => {
+					const formData = new FormData();
+					formData.append("file", file);
+					formData.append("api_key", sig.apiKey);
+					formData.append("timestamp", sig.timestamp);
+					formData.append("signature", sig.signature);
+					formData.append("folder", sig.folder);
+					return fetch(
+						`https://api.cloudinary.com/v1_1/${sig.cloudName}/raw/upload`,
+						{ method: "POST", body: formData },
+					).then((r) => r.json());
+				})
+				.then((res) => updatePdfUrl(res.secure_url).unwrap()),
+		]);
 
-			setResumeData(parsed);
+		if (parseResult.status === "fulfilled") {
+			setResumeData({ educations: [], ...parseResult.value });
 			setTab("resume");
-		} catch {
+			setEditingResume(true);
+		} else {
 			setParseError(
 				"Could not parse the PDF. Please check the file and try again.",
 			);
-		} finally {
-			setIsParsing(false);
+		}
 
-			if (fileRef.current) {
-				fileRef.current.value = "";
-			}
+		if (cloudinaryResult.status === "rejected") {
+			setUploadError(
+				"PDF uploaded locally but could not be saved to cloud. You can still save your resume.",
+			);
+		}
+
+		setIsParsing(false);
+
+		if (fileRef.current) {
+			fileRef.current.value = "";
 		}
 	}
 
@@ -216,6 +287,14 @@ function Profile() {
 						startDate: formatDate(startDate),
 						endDate: formatDate(endDate),
 						experience,
+					}),
+				),
+				educations: resumeData.educations.map(
+					({ institutionName, degree, startDate, endDate }) => ({
+						institutionName,
+						degree,
+						startDate: formatDate(startDate),
+						endDate: formatDate(endDate),
 					}),
 				),
 			};
@@ -284,6 +363,12 @@ function Profile() {
 				{parseError ? (
 					<p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
 						{parseError}
+					</p>
+				) : null}
+
+				{uploadError ? (
+					<p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+						{uploadError}
 					</p>
 				) : null}
 
@@ -600,6 +685,49 @@ function Profile() {
 								)}
 							</Panel>
 
+							<Panel
+								title="Education"
+								action={
+									<Button
+										size="sm"
+										variant="secondary"
+										onClick={addEducation}
+									>
+										+ Add entry
+									</Button>
+								}
+							>
+								{resumeData.educations.length === 0 ? (
+									<p className="text-sm text-slate-500">
+										No entries yet. Click "+ Add entry".
+									</p>
+								) : (
+									<div className="space-y-6">
+										{resumeData.educations.map(
+											(entry, idx) => (
+												<EducationEntry
+													key={entry.id}
+													entry={entry}
+													index={idx}
+													onChange={(field, value) =>
+														updateEducation(
+															entry.id,
+															field,
+															value,
+														)
+													}
+													onRemove={() =>
+														removeEducation(
+															entry.id,
+														)
+													}
+												/>
+											),
+										)}
+									</div>
+								)}
+							</Panel>
+
 							{saveSuccess ? (
 								<p className="text-sm font-medium text-emerald-700">
 									{saveSuccess}
@@ -631,7 +759,8 @@ function Profile() {
 								</div>
 							) : resumeData.jobExperience.length === 0 &&
 							  !resumeData.summary &&
-							  resumeData.skills.length === 0 ? (
+							  resumeData.skills.length === 0 &&
+							  resumeData.educations.length === 0 ? (
 								<div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
 									<p className="text-sm font-medium text-slate-600">
 										No resume data yet
@@ -743,6 +872,40 @@ function Profile() {
 											</div>
 										</Panel>
 									)}
+
+									{resumeData.educations.length > 0 && (
+										<Panel title="Education">
+											<div className="space-y-4">
+												{resumeData.educations.map(
+													(entry) => (
+														<div
+															key={entry.id}
+															className="space-y-1"
+														>
+															<div className="flex items-center justify-between">
+																<h3 className="text-base font-semibold text-slate-950">
+																	{entry.degree}
+																</h3>
+																<p className="text-sm text-slate-500">
+																	{
+																		entry.startDate
+																	}{" "}
+																	-{" "}
+																	{entry.endDate ||
+																		"Present"}
+																</p>
+															</div>
+															<p className="text-sm text-slate-600">
+																{
+																	entry.institutionName
+																}
+															</p>
+														</div>
+													),
+												)}
+											</div>
+										</Panel>
+									)}
 								</>
 							)}
 						</div>
@@ -823,6 +986,56 @@ function ExperienceEntry({ entry, index, onChange, onRemove }) {
 					value={entry.experience}
 					onChange={(v) => onChange("experience", v)}
 					placeholder="Describe your responsibilities and achievements…"
+				/>
+			</div>
+		</div>
+	);
+}
+
+function EducationEntry({ entry, index, onChange, onRemove }) {
+	return (
+		<div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-4">
+			<div className="flex items-center justify-between">
+				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+					Entry {index + 1}
+				</p>
+
+				<button
+					type="button"
+					onClick={onRemove}
+					className="text-xs text-rose-500 hover:text-rose-700"
+				>
+					Remove
+				</button>
+			</div>
+
+			<div className="grid gap-3 sm:grid-cols-2">
+				<Field
+					label="Institution name"
+					value={entry.institutionName}
+					onChange={(v) => onChange("institutionName", v)}
+					className="sm:col-span-2"
+				/>
+
+				<Field
+					label="Degree"
+					value={entry.degree}
+					onChange={(v) => onChange("degree", v)}
+					className="sm:col-span-2"
+				/>
+
+				<Field
+					label="Start year"
+					placeholder="e.g. 2018"
+					value={entry.startDate}
+					onChange={(v) => onChange("startDate", v)}
+				/>
+
+				<Field
+					label="End year"
+					placeholder="e.g. 2022 or Present"
+					value={entry.endDate}
+					onChange={(v) => onChange("endDate", v)}
 				/>
 			</div>
 		</div>

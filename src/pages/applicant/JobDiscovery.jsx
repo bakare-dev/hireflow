@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { Link } from "react-router";
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
 import Input from "../../components/common/Input";
@@ -9,13 +8,12 @@ import MatchPercentBar from "../../components/domain/MatchPercentBar";
 import { JOB_LISTING_STATUS } from "../../constants/jobStatus";
 import { ROUTES } from "../../constants/routes";
 import { EMPLOYMENT_TYPE_LABELS } from "../../constants/employment";
-import { selectAuthUser } from "../../store/slices/authSlice";
-import { selectApplications } from "../../store/slices/applicationsSlice";
 import { useGetOpenJobsQuery } from "../../api/jobsApi";
+import { useGetMyApplicationsQuery } from "../../api/applicationsApi";
+import { useGetResumeProfileQuery } from "../../api/resumeApi";
 import {
-	applicationForJob,
 	applicationLastUpdated,
-	computeMatchPercent,
+	computeJobMatchDetails,
 	employmentTypeLabel,
 	formatSalary,
 	matchSkills,
@@ -29,9 +27,6 @@ import RichTextViewer from "../../components/editor/RichTextViewer";
 const VISIBLE_STEP = 6;
 
 function JobDiscovery() {
-	const user = useSelector(selectAuthUser);
-	const applications = useSelector(selectApplications);
-
 	const [query, setQuery] = useState("");
 	const [jobType, setJobType] = useState("");
 	const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
@@ -48,9 +43,31 @@ function JobDiscovery() {
 		},
 	);
 
+	const { data: resumeProfile } = useGetResumeProfileQuery();
+	const { data: applicationsResponse } = useGetMyApplicationsQuery({
+		page: 0,
+		size: 100,
+	});
+
+	const applicationByJobId = useMemo(() => {
+		const map = new Map();
+		for (const app of applicationsResponse?.content ?? []) {
+			if (app.jobListingId) map.set(app.jobListingId, app);
+		}
+		return map;
+	}, [applicationsResponse?.content]);
+
 	const jobs = useMemo(() => {
 		return apiResponse?.content || [];
 	}, [apiResponse?.content]);
+
+	const matchByJobId = useMemo(() => {
+		const map = new Map();
+		for (const job of jobs) {
+			map.set(job.id, computeJobMatchDetails(job, resumeProfile));
+		}
+		return map;
+	}, [jobs, resumeProfile]);
 
 	const openJobs = useMemo(() => {
 		return jobs.filter((job) => job.status === JOB_LISTING_STATUS.OPEN);
@@ -81,17 +98,18 @@ function JobDiscovery() {
 		null;
 
 	const selectedApplication = selectedJob
-		? applicationForJob(applications, selectedJob.id, user?.id)
+		? applicationByJobId.get(selectedJob.id) ?? null
 		: null;
 
-	const selectedMatch = selectedJob
-		? computeMatchPercent(selectedJob, user)
-		: 0;
+	const selectedMatch =
+		(selectedJob && matchByJobId.get(selectedJob.id)?.score) || 0;
 
-	const selectedSkills = selectedJob ? matchSkills(selectedJob, user) : null;
+	const selectedSkills = selectedJob
+		? matchSkills(selectedJob, resumeProfile)
+		: null;
 
 	const applyApplication = applyJob
-		? applicationForJob(applications, applyJob.id, user?.id)
+		? applicationByJobId.get(applyJob.id) ?? null
 		: null;
 
 	function toggleSave(jobId) {
@@ -161,17 +179,14 @@ function JobDiscovery() {
 					) : visibleJobs.length ? (
 						<>
 							{visibleJobs.map((job) => {
-								const application = applicationForJob(
-									applications,
-									job.id,
-									user?.id,
-								);
+								const application =
+									applicationByJobId.get(job.id) ?? null;
 
 								return (
 									<JobCard
 										key={job.id}
 										job={job}
-										user={user}
+										match={matchByJobId.get(job.id)?.score ?? 0}
 										application={application}
 										selected={selectedJob?.id === job.id}
 										saved={savedIds.has(job.id)}
@@ -271,13 +286,13 @@ function JobDiscovery() {
 									<p className="mt-1 text-sm text-slate-600">
 										Next:{" "}
 										{nextStageLabel(
-											selectedApplication.currentStage,
+											selectedApplication.stage,
 										)}
 									</p>
 
 									<p className="mt-1 text-sm text-slate-600">
 										{stageEta(
-											selectedApplication.currentStage,
+											selectedApplication.stage,
 										)}
 									</p>
 								</div>

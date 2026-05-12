@@ -1,12 +1,22 @@
+import { ROUTES } from "../constants/routes";
 import {
 	buildUrl,
 	createHeaders,
 	messageFromBody,
 	normalizeSuccess,
 	parseResponse,
+	setAuthToken,
 } from "../utils/http";
 
 export { setAuthToken } from "../utils/http";
+
+function handleUnauthorized() {
+	if (typeof window === "undefined") return;
+	setAuthToken(null);
+	if (window.location.pathname !== ROUTES.SIGN_IN) {
+		window.location.assign(ROUTES.SIGN_IN);
+	}
+}
 
 export class ApiError extends Error {
 	constructor({ message, status, data, response }) {
@@ -68,6 +78,9 @@ async function request(method, path, options = {}) {
 			: response.ok;
 
 	if (!response.ok || !apiSucceeded) {
+		if (response.status === 401) {
+			handleUnauthorized();
+		}
 		throw new ApiError({
 			message: messageFromBody(
 				responseBody,

@@ -1,12 +1,13 @@
+import { Link } from "react-router";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
 import MatchPercentBar from "../../components/domain/MatchPercentBar";
 import StageBadge from "../../components/domain/StageBadge";
+import { ROUTES } from "../../constants/routes";
 import { cn } from "../../utils/classnames";
 import {
 	applicationLastUpdated,
 	applicationStatusText,
-	computeMatchPercent,
 	employmentTypeLabel,
 	formatSalary,
 	postedLabel,
@@ -14,7 +15,7 @@ import {
 
 function JobCard({
 	job,
-	user,
+	match = 0,
 	application,
 	selected,
 	saved,
@@ -22,7 +23,6 @@ function JobCard({
 	onApply,
 	onToggleSave,
 }) {
-	const match = computeMatchPercent(job, user);
 
 	return (
 		<article
@@ -82,7 +82,7 @@ function JobCard({
 				{application ? (
 					<div className="mt-4 rounded-lg bg-slate-50 p-3">
 						<div className="flex flex-wrap items-center gap-2">
-							<StageBadge stage={application.currentStage} />
+							<StageBadge stage={application.stage ?? application.currentStage} />
 							<span className="text-xs text-slate-500">
 								Updated {applicationLastUpdated(application)}
 							</span>
@@ -111,6 +111,13 @@ function JobCard({
 					{saved ? "Saved" : "Save"}
 				</Button>
 			</div>
+
+			<Link
+				to={ROUTES.APPLICANT_JOB_DETAIL(job.id)}
+				className="mt-3 block text-center text-sm font-medium text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline lg:hidden"
+			>
+				View details
+			</Link>
 		</article>
 	);
 }

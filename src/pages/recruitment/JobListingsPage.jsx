@@ -1,33 +1,27 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { useSelector } from "react-redux";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
 import Card, { CardBody, CardHeader } from "../../components/common/Card";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import EmptyState from "../../components/common/EmptyState";
 import Input from "../../components/common/Input";
 import PageHeader from "../../components/common/PageHeader";
 import Select from "../../components/common/Select";
 import { JOB_STATUS_LABELS } from "../../constants/jobStatus";
+import { EMPLOYMENT_TYPE_LABELS } from "../../constants/employment";
 import { ROUTES } from "../../constants/routes";
-import { selectAuthRole, selectAuthUser } from "../../store/slices/authSlice";
-import { selectApplications } from "../../store/slices/applicationsSlice";
-import { useGetCompanyJobsQuery } from "../../api/jobsApi";
-import { formatDate } from "../../utils/date";
 import {
-	avgAiMatchForJob,
-	getUserMap,
-	roleScopedApplications,
-	roleScopedJobs,
-} from "../../utils/recruitmentUtils";
+	useDeleteJobMutation,
+	useGetCompanyJobsQuery,
+} from "../../api/jobsApi";
+import useToast from "../../hooks/useToast";
 
 function JobListingsPage() {
-	const role = useSelector(selectAuthRole);
-	const user = useSelector(selectAuthUser);
-	const applications = useSelector(selectApplications);
+	const toast = useToast();
 	const [query, setQuery] = useState("");
 	const [status, setStatus] = useState("");
-	const [view, setView] = useState("table");
+	const [pendingDelete, setPendingDelete] = useState(null);
 
 	const { data: apiResponse, isLoading: isJobsLoading } =
 		useGetCompanyJobsQuery({
@@ -36,24 +30,33 @@ function JobListingsPage() {
 			size: 50,
 		});
 
-	const jobs = useMemo(() => {
-		return apiResponse?.data?.content || [];
-	}, [apiResponse?.data?.content]);
+	const [deleteJob, { isLoading: isDeleting }] = useDeleteJobMutation();
 
-	const users = getUserMap();
-	const scopedJobs = useMemo(
-		() => roleScopedJobs(jobs, role, user),
-		[jobs, role, user],
-	);
-	const scopedApps = useMemo(
-		() => roleScopedApplications(applications, scopedJobs, role, user),
-		[applications, scopedJobs, role, user],
-	);
-	const filtered = scopedJobs.filter((job) =>
-		`${job.title} ${job.location}`
-			.toLowerCase()
-			.includes(query.toLowerCase()),
-	);
+	const jobs = useMemo(() => {
+		return apiResponse?.content || [];
+	}, [apiResponse?.content]);
+
+	const filtered = useMemo(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return jobs;
+		return jobs.filter((job) =>
+			`${job.title ?? ""} ${job.location ?? ""}`
+				.toLowerCase()
+				.includes(q),
+		);
+	}, [jobs, query]);
+
+	async function handleConfirmDelete() {
+		if (!pendingDelete) return;
+		try {
+			await deleteJob(pendingDelete.id).unwrap();
+			toast.success("Job listing deleted.");
+		} catch (err) {
+			toast.error(err?.message ?? "Unable to delete job listing");
+		} finally {
+			setPendingDelete(null);
+		}
+	}
 
 	return (
 		<div className="space-y-6">
@@ -66,22 +69,6 @@ function JobListingsPage() {
 						<Link to={ROUTES.JOB_LISTING_NEW}>
 							<Button size="sm">Create listing</Button>
 						</Link>
-						<Button
-							variant={view === "table" ? "primary" : "secondary"}
-							size="sm"
-							onClick={() => setView("table")}
-						>
-							Table
-						</Button>
-						<Button
-							variant={
-								view === "compact" ? "primary" : "secondary"
-							}
-							size="sm"
-							onClick={() => setView("compact")}
-						>
-							Compact
-						</Button>
 					</div>
 				}
 			/>
@@ -111,167 +98,126 @@ function JobListingsPage() {
 				</CardBody>
 			</Card>
 
-			{view === "table" ? (
-				<Card>
-					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">
-							All Listings
-						</h2>
-					</CardHeader>
-					<div className="overflow-x-auto">
-						{isJobsLoading ? (
-							<EmptyState
-								title="Loading job listings"
-								description="Fetching your company's job listings..."
-							/>
-						) : filtered.length ? (
-							<table className="min-w-full text-sm">
-								<thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-									<tr>
-										<Th>Job title</Th>
-										<Th>Hiring manager</Th>
-										<Th>Applicants</Th>
-										<Th>Avg AI match</Th>
-										<Th>Status</Th>
-										<Th>Created</Th>
-										<Th>Actions</Th>
+			<Card>
+				<CardHeader>
+					<h2 className="text-sm font-semibold text-slate-900">
+						All Listings
+					</h2>
+				</CardHeader>
+				<div className="overflow-x-auto">
+					{isJobsLoading ? (
+						<EmptyState
+							title="Loading job listings"
+							description="Fetching your company's job listings..."
+						/>
+					) : filtered.length ? (
+						<table className="min-w-full text-sm">
+							<thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+								<tr>
+									<Th>Job title</Th>
+									<Th>Type</Th>
+									<Th>Auto-pass</Th>
+									<Th>Auto-reject</Th>
+									<Th>Status</Th>
+									<Th>Actions</Th>
+								</tr>
+							</thead>
+							<tbody>
+								{filtered.map((job) => (
+									<tr
+										key={job.id}
+										className="border-t border-slate-100 text-slate-700"
+									>
+										<Td>
+											<p className="font-medium text-slate-900">
+												{job.title}
+											</p>
+											<p className="text-xs text-slate-500">
+												{job.location || "—"}
+											</p>
+										</Td>
+										<Td>
+											{EMPLOYMENT_TYPE_LABELS[job.type] ??
+												job.type}
+										</Td>
+										<Td>
+											{job.autoPassThreshold != null
+												? `${job.autoPassThreshold}%`
+												: "-"}
+										</Td>
+										<Td>
+											{job.autoRejectThreshold != null
+												? `${job.autoRejectThreshold}%`
+												: "-"}
+										</Td>
+										<Td>
+											<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
+												{JOB_STATUS_LABELS[job.status] ??
+													job.status}
+											</Badge>
+										</Td>
+										<Td>
+											<div className="flex flex-wrap gap-2">
+												<Link
+													to={ROUTES.JOB_DETAIL(job.id)}
+												>
+													<Button
+														variant="secondary"
+														size="sm"
+													>
+														View
+													</Button>
+												</Link>
+												<Link
+													to={ROUTES.JOB_LISTING_EDIT(
+														job.id,
+													)}
+												>
+													<Button
+														variant="secondary"
+														size="sm"
+													>
+														Edit
+													</Button>
+												</Link>
+												<Button
+													variant="danger"
+													size="sm"
+													onClick={() =>
+														setPendingDelete(job)
+													}
+													disabled={isDeleting}
+												>
+													Delete
+												</Button>
+											</div>
+										</Td>
 									</tr>
-								</thead>
-								<tbody>
-									{filtered.map((job) => {
-										const applicantCount =
-											scopedApps.filter(
-												(app) =>
-													app.jobListingId === job.id,
-											).length;
-										const ai = avgAiMatchForJob(
-											job.id,
-											scopedApps,
-										);
-										return (
-											<tr
-												key={job.id}
-												className="border-t border-slate-100 text-slate-700"
-											>
-												<Td>
-													<p className="font-medium text-slate-900">
-														{job.title}
-													</p>
-													<p className="text-xs text-slate-500">
-														{job.location}
-													</p>
-												</Td>
-												<Td>
-													{users.get(
-														job.hiringManagerId,
-													)?.name ?? "Unassigned"}
-												</Td>
-												<Td>{applicantCount}</Td>
-												<Td>{ai || "-"}</Td>
-												<Td>
-													<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
-														{
-															JOB_STATUS_LABELS[
-																job.status
-															]
-														}
-													</Badge>
-												</Td>
-												<Td>
-													{formatDate(job.createdAt)}
-												</Td>
-												<Td>
-													<div className="flex gap-2">
-														<Link
-															to={ROUTES.JOB_LISTING_EDIT(
-																job.id,
-															)}
-														>
-															<Button
-																variant="secondary"
-																size="sm"
-															>
-																Edit
-															</Button>
-														</Link>
-														<Link
-															to={ROUTES.JOB_DETAIL(
-																job.id,
-															)}
-														>
-															<Button
-																variant="secondary"
-																size="sm"
-															>
-																View analytics
-															</Button>
-														</Link>
-													</div>
-												</Td>
-											</tr>
-										);
-									})}
-								</tbody>
-							</table>
-						) : (
-							<EmptyState
-								title="No job listings found"
-								description="Try adjusting your search or status filter."
-							/>
-						)}
-					</div>
-				</Card>
-			) : isJobsLoading ? (
-				<EmptyState
-					title="Loading job listings"
-					description="Fetching your company's job listings..."
-				/>
-			) : filtered.length ? (
-				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-					{filtered.map((job) => {
-						const applicantCount = scopedApps.filter(
-							(app) => app.jobListingId === job.id,
-						).length;
-						const ai = avgAiMatchForJob(job.id, scopedApps);
-						return (
-							<Card key={job.id}>
-								<CardBody className="space-y-3">
-									<p className="text-lg font-semibold text-slate-900">
-										{job.title}
-									</p>
-									<p className="text-sm text-slate-600">
-										{job.location}
-									</p>
-									<div className="flex items-center justify-between text-sm">
-										<span>
-											Applicants: {applicantCount}
-										</span>
-										<span>AI: {ai || "-"}%</span>
-									</div>
-									<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
-										{JOB_STATUS_LABELS[job.status]}
-									</Badge>
-									<Link to={ROUTES.JOB_DETAIL(job.id)}>
-										<Button variant="secondary" size="sm">
-											Open job dashboard
-										</Button>
-									</Link>
-									<Link to={ROUTES.JOB_LISTING_EDIT(job.id)}>
-										<Button variant="secondary" size="sm">
-											Edit listing
-										</Button>
-									</Link>
-								</CardBody>
-							</Card>
-						);
-					})}
+								))}
+							</tbody>
+						</table>
+					) : (
+						<EmptyState
+							title="No job listings found"
+							description="Try adjusting your search or status filter."
+						/>
+					)}
 				</div>
-			) : (
-				<EmptyState
-					title="No job listings found"
-					description="Try adjusting your search or status filter."
-				/>
-			)}
+			</Card>
+
+			<ConfirmModal
+				open={Boolean(pendingDelete)}
+				onClose={() => setPendingDelete(null)}
+				onConfirm={handleConfirmDelete}
+				title="Delete job listing?"
+				description={
+					pendingDelete
+						? `This will permanently remove "${pendingDelete.title}". This action cannot be undone.`
+						: ""
+				}
+				confirmButtonText="Delete"
+				type="destructive"
+			/>
 		</div>
 	);
 }

@@ -49,6 +49,16 @@ function JobListingFormPage() {
 	const [updateJob, { isLoading: isUpdating }] = useUpdateJobMutation();
 
 	const [form, setForm] = useState(() => initForm(existingJob));
+	const [hydratedFromId, setHydratedFromId] = useState(existingJob?.id);
+	// On edit, `answer` is not returned by the API; only replace the existing
+	// questions when the user explicitly chooses to.
+	const [replaceQuestions, setReplaceQuestions] = useState(!isEdit);
+
+	if (isEdit && existingJob && existingJob.id !== hydratedFromId) {
+		setHydratedFromId(existingJob.id);
+		setForm(initForm(existingJob));
+		setReplaceQuestions(false);
+	}
 
 	const title = useMemo(
 		() => (isEdit ? "Update Job Listing" : "Create Job Listing"),
@@ -57,6 +67,29 @@ function JobListingFormPage() {
 
 	function setField(field, value) {
 		setForm((current) => ({ ...current, [field]: value }));
+	}
+
+	function setQuestion(index, key, value) {
+		setForm((current) => ({
+			...current,
+			questions: current.questions.map((q, i) =>
+				i === index ? { ...q, [key]: value } : q,
+			),
+		}));
+	}
+
+	function addQuestion() {
+		setForm((current) => ({
+			...current,
+			questions: [...current.questions, { question: "", answer: "" }],
+		}));
+	}
+
+	function removeQuestion(index) {
+		setForm((current) => ({
+			...current,
+			questions: current.questions.filter((_, i) => i !== index),
+		}));
 	}
 
 	if (isEdit && isLoadingJob) {
@@ -90,6 +123,27 @@ function JobListingFormPage() {
 			autoPassThreshold: Number(form.autoPassThreshold),
 			skillIds: form.skills.map((s) => s.id),
 		};
+
+		// Screening questions: send only when creating or when the user opted
+		// to replace them on edit (the API fully replaces the list, and each
+		// item requires an `answer` which the API never returns).
+		if (!isEdit || replaceQuestions) {
+			const trimmedQuestions = form.questions
+				.map((q) => ({
+					question: q.question.trim(),
+					answer: q.answer.trim(),
+				}))
+				.filter((q) => q.question || q.answer);
+			for (const q of trimmedQuestions) {
+				if (!q.question || !q.answer) {
+					toast.error(
+						"Each screening question needs both a question and an ideal answer.",
+					);
+					return;
+				}
+			}
+			payload.questions = trimmedQuestions;
+		}
 
 		try {
 			if (isEdit && id) {
@@ -244,6 +298,134 @@ function JobListingFormPage() {
 
 				<Card>
 					<CardHeader>
+						<div className="flex items-center justify-between gap-3">
+							<div>
+								<h2 className="text-sm font-semibold text-slate-900">
+									Screening Questions
+								</h2>
+								<p className="mt-1 text-xs text-slate-500">
+									Role-specific questions plus the ideal answer
+									used by the AI for evaluation. Ideal answers
+									are stored privately and never returned by the
+									API.
+								</p>
+							</div>
+							{isEdit && !replaceQuestions ? (
+								<Button
+									type="button"
+									size="sm"
+									variant="secondary"
+									onClick={() => setReplaceQuestions(true)}
+								>
+									Replace questions
+								</Button>
+							) : null}
+						</div>
+					</CardHeader>
+					<CardBody className="space-y-4">
+						{isEdit && !replaceQuestions ? (
+							<p className="text-xs text-slate-500">
+								Existing screening questions will be left
+								unchanged. Click <em>Replace questions</em> to
+								overwrite the full list (ideal answers must be
+								re-entered).
+							</p>
+						) : (
+							<>
+								{form.questions.length === 0 ? (
+									<p className="text-xs text-slate-500">
+										No screening questions yet.
+									</p>
+								) : (
+									form.questions.map((q, index) => (
+										<div
+											key={index}
+											className="space-y-2 rounded-md border border-slate-200 p-3"
+										>
+											<div className="flex items-center justify-between">
+												<span className="text-xs font-semibold text-slate-600">
+													Question {index + 1}
+												</span>
+												<button
+													type="button"
+													onClick={() =>
+														removeQuestion(index)
+													}
+													className="text-xs text-red-600 hover:underline"
+												>
+													Remove
+												</button>
+											</div>
+											<Input
+												label="Question"
+												value={q.question}
+												onChange={(e) =>
+													setQuestion(
+														index,
+														"question",
+														e.target.value,
+													)
+												}
+												required
+											/>
+											<label className="block">
+												<span className="mb-1 block text-sm font-medium text-slate-800">
+													Ideal Answer
+													<span className="text-red-500">
+														*
+													</span>
+												</span>
+												<textarea
+													value={q.answer}
+													onChange={(e) =>
+														setQuestion(
+															index,
+															"answer",
+															e.target.value,
+														)
+													}
+													rows={3}
+													required
+													className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+													placeholder="What should a strong response cover?"
+												/>
+											</label>
+										</div>
+									))
+								)}
+								<div className="flex items-center gap-2">
+									<Button
+										type="button"
+										size="sm"
+										variant="secondary"
+										onClick={addQuestion}
+									>
+										Add question
+									</Button>
+									{isEdit ? (
+										<Button
+											type="button"
+											size="sm"
+											variant="ghost"
+											onClick={() => {
+												setReplaceQuestions(false);
+												setForm((current) => ({
+													...current,
+													questions: [],
+												}));
+											}}
+										>
+											Cancel replace
+										</Button>
+									) : null}
+								</div>
+							</>
+						)}
+					</CardBody>
+				</Card>
+
+				<Card>
+					<CardHeader>
 						<h2 className="text-sm font-semibold text-slate-900">
 							Screening Thresholds
 						</h2>
@@ -347,6 +529,7 @@ function defaultForm() {
 		autoRejectThreshold: "40",
 		autoPassThreshold: "75",
 		status: "DRAFT",
+		questions: [],
 	};
 }
 
@@ -364,6 +547,9 @@ function initForm(job) {
 		autoRejectThreshold: String(job.autoRejectThreshold ?? "40"),
 		autoPassThreshold: String(job.autoPassThreshold ?? "75"),
 		status: job.status ?? "DRAFT",
+		// The API never returns `answer`; start with an empty list so the user
+		// must opt in to replace before re-entering ideal answers.
+		questions: [],
 	};
 }
 

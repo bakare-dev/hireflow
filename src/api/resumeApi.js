@@ -41,20 +41,6 @@ export const resumeApi = baseApi.injectEndpoints({
 				}
 			},
 		}),
-		updateResumePdfUrl: builder.mutation({
-			async queryFn(pdfUrl) {
-				try {
-					const response = await apiHandler.patch(
-						"/resume-profiles/pdf-url",
-						{ payload: { pdfUrl } },
-					);
-					return { data: response };
-				} catch (err) {
-					return { error: toRtkError(err) };
-				}
-			},
-			invalidatesTags: ["ResumeProfile"],
-		}),
 	}),
 });
 
@@ -62,5 +48,4 @@ export const {
 	useGetResumeProfileQuery,
 	useUpsertResumeProfileMutation,
 	useGetUploadSignatureMutation,
-	useUpdateResumePdfUrlMutation,
 } = resumeApi;

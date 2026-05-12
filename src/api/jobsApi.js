@@ -52,7 +52,18 @@ export const jobsApi = baseApi.injectEndpoints({
 					return { error: toRtkError(err) };
 				}
 			},
-			providesTags: ["Jobs"],
+			providesTags: (result, error, id) => [{ type: "Jobs", id }, "Jobs"],
+		}),
+		deleteJob: builder.mutation({
+			async queryFn(id) {
+				try {
+					await apiHandler.delete(`/jobs/${id}`);
+					return { data: { id } };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			invalidatesTags: ["Jobs"],
 		}),
 		getJobsByCompany: builder.query({
 			async queryFn({ companyId, status, page = 0, size = 10 }) {
@@ -117,6 +128,7 @@ export const {
 	useCreateJobMutation,
 	useUpdateJobMutation,
 	useGetJobQuery,
+	useDeleteJobMutation,
 	useGetJobsByCompanyQuery,
 	useGetCompanyJobsQuery,
 	useSearchSkillsQuery,

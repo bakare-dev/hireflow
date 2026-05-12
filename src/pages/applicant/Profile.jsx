@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { useSelector } from "react-redux";
 import Button from "../../components/common/Button";
 import SkillTagEditor from "../../components/common/SkillTagEditor";
@@ -12,7 +12,6 @@ import {
 	useUpsertResumeProfileMutation,
 	useGetResumeProfileQuery,
 	useGetUploadSignatureMutation,
-	useUpdateResumePdfUrlMutation,
 } from "../../api/resumeApi";
 
 function useSafeLocation() {
@@ -29,6 +28,19 @@ function formatDate(dateStr) {
 	if (dateStr.match(/^\d{4}-\d{2}$/)) return `${dateStr}-01`;
 	return dateStr;
 }
+
+function hasText(value) {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+function compactText(value) {
+	return hasText(value) ? value.trim() : undefined;
+}
+
+function apiDisplayName(profile) {
+	return [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
+}
+
 function buildProfile(user) {
 	return {
 		name: user?.name ?? "",
@@ -80,17 +92,30 @@ function Profile() {
 
 	const [profile, setProfile] = useState(() => buildProfile(user));
 
+	const [uploadedResume, setUploadedResume] = useState({
+		url: "",
+		publicId: "",
+	});
+
 	const [resumeData, setResumeData] = useState(() => buildResumeData(user));
 
 	const [saveResume, { isLoading: isSaving }] =
 		useUpsertResumeProfileMutation();
 	const [getUploadSignature] = useGetUploadSignatureMutation();
-	const [updatePdfUrl] = useUpdateResumePdfUrlMutation();
 
 	const [resumeLoaded, setResumeLoaded] = useState(false);
 
 	useEffect(() => {
 		if (resumeProfile && !resumeLoaded) {
+			const displayName = apiDisplayName(resumeProfile);
+			if (displayName || resumeProfile.email) {
+				setProfile((current) => ({
+					...current,
+					name: displayName || current.name,
+					email: resumeProfile.email || current.email,
+				}));
+			}
+
 			setResumeData({
 				phoneNumber: resumeProfile.phoneNumber || "",
 				email: resumeProfile.email || user?.email || "",
@@ -118,6 +143,10 @@ function Profile() {
 							: "",
 						endDate: edu.endDate ? edu.endDate.substring(0, 4) : "",
 					})) || [],
+			});
+			setUploadedResume({
+				url: resumeProfile.resumePdfUrl || "",
+				publicId: resumeProfile.resumePublicId || "",
 			});
 			setResumeLoaded(true);
 		}
@@ -226,12 +255,18 @@ function Profile() {
 					formData.append("timestamp", sig.timestamp);
 					formData.append("signature", sig.signature);
 					formData.append("folder", sig.folder);
+					const resourceType = sig.resourceType ?? "raw";
 					return fetch(
-						`https://api.cloudinary.com/v1_1/${sig.cloudName}/raw/upload`,
+						`https://api.cloudinary.com/v1_1/${sig.cloudName}/${resourceType}/upload`,
 						{ method: "POST", body: formData },
-					).then((r) => r.json());
-				})
-				.then((res) => updatePdfUrl(res.secure_url).unwrap()),
+					).then(async (response) => {
+						const body = await response.json();
+						if (!response.ok || !body.secure_url) {
+							throw new Error("Cloudinary upload failed");
+						}
+						return body;
+					});
+				}),
 		]);
 
 		if (parseResult.status === "fulfilled") {
@@ -244,9 +279,14 @@ function Profile() {
 			);
 		}
 
-		if (cloudinaryResult.status === "rejected") {
+		if (cloudinaryResult.status === "fulfilled") {
+			setUploadedResume({
+				url: cloudinaryResult.value.secure_url,
+				publicId: cloudinaryResult.value.public_id,
+			});
+		} else {
 			setUploadError(
-				"PDF uploaded locally but could not be saved to cloud. You can still save your resume.",
+				"PDF parsed locally but could not be uploaded to cloud. You can still save your resume details.",
 			);
 		}
 
@@ -265,16 +305,30 @@ function Profile() {
 			const skillNames = resumeData.skills
 				?.filter(Boolean)
 				.map((skill) =>
-					typeof skill === "string" ? skill : skill.name,
+					typeof skill === "string"
+						? skill.trim()
+						: skill.name?.trim(),
 				)
 				.filter(Boolean);
 
-			const payload = {
-				phoneNumber: resumeData.phoneNumber || undefined,
-				linkedIn: resumeData.linkedIn || undefined,
-				summary: resumeData.summary || undefined,
-				skillNames: skillNames.length > 0 ? skillNames : undefined,
-				workExperiences: resumeData.jobExperience.map(
+			const workExperiences = resumeData.jobExperience
+				.filter(
+					({
+						companyName,
+						jobTitle,
+						startDate,
+						endDate,
+						experience,
+					}) =>
+						[
+							companyName,
+							jobTitle,
+							startDate,
+							endDate,
+							experience,
+						].some(hasText),
+				)
+				.map(
 					({
 						companyName,
 						jobTitle,
@@ -282,21 +336,55 @@ function Profile() {
 						endDate,
 						experience,
 					}) => ({
-						companyName,
-						jobTitle,
+						companyName: compactText(companyName),
+						jobTitle: compactText(jobTitle),
 						startDate: formatDate(startDate),
 						endDate: formatDate(endDate),
-						experience,
+						experience: compactText(experience),
 					}),
-				),
-				educations: resumeData.educations.map(
-					({ institutionName, degree, startDate, endDate }) => ({
-						institutionName,
-						degree,
-						startDate: formatDate(startDate),
-						endDate: formatDate(endDate),
-					}),
-				),
+				);
+
+			const incompleteExperience = workExperiences.some(
+				(entry) => !entry.companyName || !entry.startDate,
+			);
+			if (incompleteExperience) {
+				setSaveError(
+					"Each job experience needs at least a company name and start date.",
+				);
+				return;
+			}
+
+			const educations = resumeData.educations
+				.filter(({ institutionName, degree, startDate, endDate }) =>
+					[institutionName, degree, startDate, endDate].some(hasText),
+				)
+				.map(({ institutionName, degree, startDate, endDate }) => ({
+					institutionName: compactText(institutionName),
+					degree: compactText(degree),
+					startDate: formatDate(startDate),
+					endDate: formatDate(endDate),
+				}));
+
+			const incompleteEducation = educations.some(
+				(entry) =>
+					!entry.institutionName || !entry.degree || !entry.startDate,
+			);
+			if (incompleteEducation) {
+				setSaveError(
+					"Each education entry needs an institution, degree, and start date.",
+				);
+				return;
+			}
+
+			const payload = {
+				phoneNumber: compactText(resumeData.phoneNumber),
+				linkedIn: compactText(resumeData.linkedIn),
+				summary: compactText(resumeData.summary),
+				skillNames: skillNames.length > 0 ? skillNames : undefined,
+				workExperiences,
+				educations,
+				resumePdfUrl: uploadedResume.url || undefined,
+				resumePublicId: uploadedResume.publicId || undefined,
 			};
 
 			await saveResume(payload).unwrap();
@@ -884,7 +972,9 @@ function Profile() {
 														>
 															<div className="flex items-center justify-between">
 																<h3 className="text-base font-semibold text-slate-950">
-																	{entry.degree}
+																	{
+																		entry.degree
+																	}
 																</h3>
 																<p className="text-sm text-slate-500">
 																	{

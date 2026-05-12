@@ -1,49 +1,59 @@
-import { Link, useParams } from "react-router";
-import { useSelector } from "react-redux";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import Badge from "../../components/common/Badge";
+import Button from "../../components/common/Button";
 import Card, { CardBody, CardHeader } from "../../components/common/Card";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import EmptyState from "../../components/common/EmptyState";
 import PageHeader from "../../components/common/PageHeader";
-import StageBadge from "../../components/domain/StageBadge";
+import RichTextViewer from "../../components/editor/RichTextViewer";
+import { JOB_STATUS_LABELS } from "../../constants/jobStatus";
+import { EMPLOYMENT_TYPE_LABELS } from "../../constants/employment";
 import { ROUTES } from "../../constants/routes";
-import { selectAuthRole, selectAuthUser } from "../../store/slices/authSlice";
-import { selectApplications } from "../../store/slices/applicationsSlice";
-import { selectJobs } from "../../store/slices/jobsSlice";
-import { formatDate } from "../../utils/date";
 import {
-	avgAiMatchForJob,
-	roleScopedApplications,
-	roleScopedJobs,
-	stageCounts,
-} from "../../utils/recruitmentUtils";
+	useDeleteJobMutation,
+	useGetJobQuery,
+} from "../../api/jobsApi";
+import useToast from "../../hooks/useToast";
 
 function JobDetailDashboardPage() {
 	const { id } = useParams();
-	const role = useSelector(selectAuthRole);
-	const user = useSelector(selectAuthUser);
-	const jobs = useSelector(selectJobs);
-	const applications = useSelector(selectApplications);
-	const scopedJobs = roleScopedJobs(jobs, role, user);
-	const job = scopedJobs.find((item) => item.id === id);
-	const scopedApps = roleScopedApplications(
-		applications,
-		scopedJobs,
-		role,
-		user,
-	);
-	const jobApps = scopedApps.filter((app) => app.jobListingId === id);
-	const counts = stageCounts(jobApps);
-	const aiAvg = avgAiMatchForJob(id, scopedApps);
-	const tabs = ["Candidates", "Analytics", "Interviews", "Notes", "Activity"];
+	const navigate = useNavigate();
+	const toast = useToast();
 
-	const applied = counts.APPLIED || 0;
-	const hired = counts.HIRED || 0;
-	const conversion = applied ? Math.round((hired / applied) * 100) : 0;
+	const { data: job, isLoading, isError } = useGetJobQuery(id ?? "", {
+		skip: !id,
+	});
+	const [deleteJob, { isLoading: isDeleting }] = useDeleteJobMutation();
+	const [confirmOpen, setConfirmOpen] = useState(false);
 
-	if (!job) {
+	async function handleDelete() {
+		try {
+			await deleteJob(id).unwrap();
+			toast.success("Job listing deleted.");
+			navigate(ROUTES.JOB_LISTINGS);
+		} catch (err) {
+			toast.error(err?.message ?? "Unable to delete job listing");
+		}
+	}
+
+	if (isLoading) {
+		return (
+			<div className="space-y-4">
+				<PageHeader
+					title="Loading job"
+					description="Fetching listing details..."
+				/>
+			</div>
+		);
+	}
+
+	if (isError || !job) {
 		return (
 			<div className="space-y-4">
 				<PageHeader
 					title="Job not found"
-					description="This job may be unavailable for your role scope."
+					description="This listing may have been removed or is unavailable."
 				/>
 				<Link
 					to={ROUTES.JOB_LISTINGS}
@@ -55,97 +65,173 @@ function JobDetailDashboardPage() {
 		);
 	}
 
+	const statusLabel = JOB_STATUS_LABELS[job.status] ?? job.status;
+	const typeLabel = EMPLOYMENT_TYPE_LABELS[job.type] ?? job.type;
+
 	return (
 		<div className="space-y-6">
 			<PageHeader
-				eyebrow="Job Detail Dashboard"
+				eyebrow={job.companyName ?? "Job"}
 				title={job.title}
-				description={`${job.location} · created ${formatDate(job.createdAt)}`}
+				description={`${job.location || "Location not set"} · ${typeLabel}`}
+				actions={
+					<div className="flex items-center gap-2">
+						<Link to={ROUTES.JOB_LISTING_EDIT(job.id)}>
+							<Button size="sm" variant="secondary">
+								Edit
+							</Button>
+						</Link>
+						<Button
+							size="sm"
+							variant="danger"
+							onClick={() => setConfirmOpen(true)}
+							disabled={isDeleting}
+						>
+							{isDeleting ? "Deleting..." : "Delete"}
+						</Button>
+					</div>
+				}
 			/>
 
-			<div className="flex flex-wrap gap-2">
-				{tabs.map((tab) => (
-					<span
-						key={tab}
-						className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700"
-					>
-						{tab}
-					</span>
-				))}
-			</div>
-
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<Metric title="Applicants" value={jobApps.length} />
-				<Metric title="Avg AI Match" value={`${aiAvg || 0}%`} />
-				<Metric
-					title="Interview Progress"
-					value={counts.INTERVIEW_SCHEDULED || 0}
-				/>
-				<Metric title="Conversion Rate" value={`${conversion}%`} />
-			</div>
+			<Card>
+				<CardHeader>
+					<div className="flex items-center justify-between">
+						<h2 className="text-sm font-semibold text-slate-900">
+							Overview
+						</h2>
+						<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
+							{statusLabel}
+						</Badge>
+					</div>
+				</CardHeader>
+				<CardBody className="grid gap-4 sm:grid-cols-3">
+					<Metric title="Type" value={typeLabel} />
+					<Metric
+						title="Auto-reject threshold"
+						value={`${job.autoRejectThreshold ?? "-"}%`}
+					/>
+					<Metric
+						title="Auto-pass threshold"
+						value={`${job.autoPassThreshold ?? "-"}%`}
+					/>
+				</CardBody>
+			</Card>
 
 			<div className="grid gap-5 xl:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">
-							Pipeline Metrics
-						</h2>
-					</CardHeader>
-					<CardBody className="space-y-3">
-						{Object.entries(counts).map(([stage, count]) => (
-							<div
-								key={stage}
-								className="flex items-center justify-between"
-							>
-								<StageBadge stage={stage} />
-								<span className="text-sm font-semibold text-slate-900">
-									{count}
-								</span>
-							</div>
-						))}
-					</CardBody>
-				</Card>
-
-				<Card>
-					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">
-							AI Insights & Bottlenecks
-						</h2>
-					</CardHeader>
-					<CardBody className="space-y-2 text-sm text-slate-700">
-						<p>
-							Skill mismatch is highest for{" "}
-							{job.requiredSkills[0] ?? "core"} competency.
-						</p>
-						<p>
-							Screening to interview conversion is lower than
-							target this cycle.
-						</p>
-						<p>
-							Interview scheduling lag appears after stage
-							transitions on weekdays.
-						</p>
-						<p>
-							Candidate momentum is strongest in first 72 hours
-							post-application.
-						</p>
-					</CardBody>
-				</Card>
+				<Section title="Summary" html={job.summary} />
+				<Section title="Responsibilities" html={job.responsibilities} />
+				<Section
+					title="Required Qualifications"
+					html={job.requiredQualifications}
+				/>
+				<Section
+					title="Preferred Qualifications"
+					html={job.preferredQualifications}
+				/>
 			</div>
+
+			<Card>
+				<CardHeader>
+					<h2 className="text-sm font-semibold text-slate-900">
+						Skills
+					</h2>
+				</CardHeader>
+				<CardBody>
+					{job.skills?.length ? (
+						<div className="flex flex-wrap gap-2">
+							{job.skills.map((skill) => (
+								<span
+									key={skill.id}
+									className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+								>
+									{skill.name}
+								</span>
+							))}
+						</div>
+					) : (
+						<EmptyState
+							title="No skills attached"
+							description="Edit this listing to attach required skills."
+						/>
+					)}
+				</CardBody>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<div>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Screening Questions
+						</h2>
+						<p className="mt-1 text-xs text-slate-500">
+							Role-specific questions used by the AI during
+							screening. Ideal answers are stored privately and not
+							shown here.
+						</p>
+					</div>
+				</CardHeader>
+				<CardBody>
+					{job.questions?.length ? (
+						<ol className="space-y-2">
+							{job.questions.map((q, index) => (
+								<li
+									key={q.id ?? index}
+									className="rounded-md border border-slate-200 bg-slate-50 p-3"
+								>
+									<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+										Question {index + 1}
+									</p>
+									<p className="mt-1 text-sm text-slate-800">
+										{q.question}
+									</p>
+								</li>
+							))}
+						</ol>
+					) : (
+						<EmptyState
+							title="No screening questions"
+							description="Edit this listing to add role-specific screening questions."
+						/>
+					)}
+				</CardBody>
+			</Card>
+
+			<ConfirmModal
+				open={confirmOpen}
+				onClose={() => setConfirmOpen(false)}
+				onConfirm={handleDelete}
+				title="Delete job listing?"
+				description={`This will permanently remove "${job.title}". This action cannot be undone.`}
+				confirmButtonText="Delete"
+				type="destructive"
+			/>
 		</div>
 	);
 }
 
 function Metric({ title, value }) {
 	return (
+		<div>
+			<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+				{title}
+			</p>
+			<p className="mt-1 text-lg font-semibold text-slate-950">{value}</p>
+		</div>
+	);
+}
+
+function Section({ title, html }) {
+	return (
 		<Card>
+			<CardHeader>
+				<h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+			</CardHeader>
 			<CardBody>
-				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-					{title}
-				</p>
-				<p className="mt-1 text-2xl font-semibold text-slate-950">
-					{value}
-				</p>
+				{html ? (
+					<RichTextViewer content={html} />
+				) : (
+					<p className="text-sm text-slate-500">Not provided.</p>
+				)}
 			</CardBody>
 		</Card>
 	);

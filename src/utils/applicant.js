@@ -9,6 +9,7 @@ import {
 	WORK_MODES,
 } from "../constants/employment";
 import { formatDate, formatDateTime, formatRelative } from "./date";
+import { computeJobMatch, matchedSkillsFor } from "./jobMatch";
 
 export function formatSalary(salary) {
 	if (!salary) return "Salary not listed";
@@ -32,30 +33,17 @@ export function employmentTypeLabel(type) {
 	return EMPLOYMENT_TYPE_LABELS[type] ?? type;
 }
 
-export function computeMatchPercent(job, user) {
-	const required = job?.requiredSkills ?? [];
-	if (!required.length) return 0;
-	const userSkills = new Set(
-		(user?.skills ?? []).map((skill) => skill.toLowerCase()),
-	);
-	const matched = required.filter((skill) =>
-		userSkills.has(skill.toLowerCase()),
-	);
-	return Math.round((matched.length / required.length) * 100);
+export function computeMatchPercent(job, profile) {
+	return computeJobMatch(job, profile).score;
 }
 
-export function matchSkills(job, user) {
-	const userSkills = new Set(
-		(user?.skills ?? []).map((skill) => skill.toLowerCase()),
-	);
-	return {
-		matched: (job?.requiredSkills ?? []).filter((skill) =>
-			userSkills.has(skill.toLowerCase()),
-		),
-		unmatched: (job?.requiredSkills ?? []).filter(
-			(skill) => !userSkills.has(skill.toLowerCase()),
-		),
-	};
+export function computeJobMatchDetails(job, profile) {
+	return computeJobMatch(job, profile);
+}
+
+export function matchSkills(job, profile) {
+	const { matched, missing } = matchedSkillsFor(job, profile);
+	return { matched, unmatched: missing };
 }
 
 export function applicationForJob(applications, jobId, userId) {
@@ -71,9 +59,9 @@ export function nextStageLabel(stage) {
 
 export function applicationStatusText(application) {
 	if (!application) return null;
-	const current =
-		STAGE_LABELS[application.currentStage] ?? application.currentStage;
-	const next = nextStageLabel(application.currentStage);
+	const stage = application.stage ?? application.currentStage;
+	const current = STAGE_LABELS[stage] ?? stage;
+	const next = nextStageLabel(stage);
 	return `${current} · Next: ${next}`;
 }
 

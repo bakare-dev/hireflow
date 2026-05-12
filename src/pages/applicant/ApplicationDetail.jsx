@@ -1,56 +1,64 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { useDispatch, useSelector } from "react-redux";
-import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
 import StageBadge from "../../components/domain/StageBadge";
 import { ROUTES } from "../../constants/routes";
 import { STAGE_LABELS } from "../../constants/stages";
+import { useGetMyApplicationQuery } from "../../api/applicationsApi";
+import { formatDate, formatDateTime } from "../../utils/date";
 import {
-	fetchStageUpdates,
-	selectApplicationById,
-	selectStageUpdatesFor,
-} from "../../store/slices/applicationsSlice";
-import { selectSlotByApplication } from "../../store/slices/interviewsSlice";
-import { selectJobs } from "../../store/slices/jobsSlice";
-import { formatDateTime } from "../../utils/date";
-import {
-	applicationLastUpdated,
-	computeMatchPercent,
-	interviewerLabel,
-	interviewTime,
-	matchSkills,
 	nextStageLabel,
 	stageEta,
 	stageNarrative,
 } from "../../utils/applicant";
-import { selectAuthUser } from "../../store/slices/authSlice";
 
 function ApplicationDetail() {
 	const { id } = useParams();
-	const dispatch = useDispatch();
-	const user = useSelector(selectAuthUser);
-	const application = useSelector(selectApplicationById(id));
-	const updates = useSelector(selectStageUpdatesFor(id));
-	const slot = useSelector(selectSlotByApplication(id));
-	const jobs = useSelector(selectJobs);
-	const job = jobs.find((item) => item.id === application?.jobListingId);
-	const match = computeMatchPercent(job, user);
-	const skills = matchSkills(job, user);
-	const latestReason = [...updates].reverse().find((update) => update.reason);
+	const {
+		data: application,
+		isLoading,
+		isError,
+		error,
+	} = useGetMyApplicationQuery(id ?? "", { skip: !id });
 
-	useEffect(() => {
-		if (id) dispatch(fetchStageUpdates(id));
-	}, [dispatch, id]);
+	const timeline = useMemo(() => {
+		const updates = application?.stageUpdates ?? [];
+		return [...updates].sort((a, b) => {
+			const at = new Date(a.createdAt).getTime();
+			const bt = new Date(b.createdAt).getTime();
+			return at - bt;
+		});
+	}, [application?.stageUpdates]);
 
-	if (!application || !job) {
+	const latestReason = useMemo(
+		() => [...timeline].reverse().find((update) => update.reason),
+		[timeline],
+	);
+
+	if (isLoading) {
 		return (
 			<EmptyState
-				title="Application not found"
-				description="This application may no longer be available."
+				title="Loading application"
+				description="Fetching the latest status..."
 			/>
 		);
 	}
+
+	if (isError || !application) {
+		return (
+			<EmptyState
+				title={error?.status === 404 ? "Application not found" : "Unable to load application"}
+				description={
+					error?.message ??
+					"This application may no longer be available."
+				}
+			/>
+		);
+	}
+
+	const screening = application.screeningResult;
+	const jobTitle = application.jobTitle ?? "Role";
+	const companyName = application.companyName ?? "Company";
 
 	return (
 		<div className="mx-auto max-w-5xl space-y-6">
@@ -64,21 +72,33 @@ function ApplicationDetail() {
 			<section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 					<div>
-						<p className="text-sm text-slate-500">Acme Labs</p>
+						<p className="text-sm text-slate-500">{companyName}</p>
 						<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
-							{job.title}
+							{jobTitle}
 						</h1>
 						<p className="mt-3 text-base text-slate-700">
-							{stageNarrative(application.currentStage, job.title)}
+							{stageNarrative(application.stage, jobTitle)}
 						</p>
 					</div>
-					<StageBadge stage={application.currentStage} />
+					<StageBadge stage={application.stage} />
 				</div>
 
 				<div className="mt-6 grid gap-3 sm:grid-cols-3">
-					<Info label="Last update" value={applicationLastUpdated(application)} />
-					<Info label="Next step" value={nextStageLabel(application.currentStage)} />
-					<Info label="ETA" value={stageEta(application.currentStage)} />
+					<Info
+						label="Applied on"
+						value={formatDate(application.createdAt)}
+					/>
+					<Info
+						label="Last update"
+						value={formatDate(application.updatedAt)}
+					/>
+					<Info
+						label="Next step"
+						value={
+							nextStageLabel(application.stage) ||
+							stageEta(application.stage)
+						}
+					/>
 				</div>
 			</section>
 
@@ -88,31 +108,35 @@ function ApplicationDetail() {
 						Application timeline
 					</h2>
 					<div className="mt-5 space-y-4">
-						{updates.length ? (
-							updates.map((update, index) => (
+						{timeline.length ? (
+							timeline.map((update, index) => (
 								<div key={update.id} className="flex gap-4">
 									<div className="flex flex-col items-center">
 										<span className="grid h-8 w-8 place-items-center rounded-full bg-slate-950 text-sm font-semibold text-white">
 											{index + 1}
 										</span>
-										{index < updates.length - 1 ? (
+										{index < timeline.length - 1 ? (
 											<span className="h-full w-px bg-slate-200" />
 										) : null}
 									</div>
 									<div className="pb-5">
 										<p className="font-semibold text-slate-950">
-											{STAGE_LABELS[update.currentStage] ?? update.currentStage}
+											{STAGE_LABELS[update.currentStage] ??
+												update.currentStage}
 										</p>
 										<p className="mt-1 text-sm text-slate-600">
-											{formatDateTime(update.occurredAt)}
+											{formatDateTime(update.createdAt)}
+											{update.actor ? ` · ${update.actor}` : ""}
 										</p>
-										<p className="mt-2 text-sm text-slate-700">
-											{update.nextStage
-												? `Next expected step: ${STAGE_LABELS[update.nextStage]}`
-												: "This is a final application state."}
-										</p>
+										{update.previousStage ? (
+											<p className="mt-2 text-sm text-slate-700">
+												Moved from{" "}
+												{STAGE_LABELS[update.previousStage] ??
+													update.previousStage}
+											</p>
+										) : null}
 										{update.reason ? (
-											<p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+											<p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
 												{update.reason}
 											</p>
 										) : null}
@@ -122,7 +146,7 @@ function ApplicationDetail() {
 						) : (
 							<EmptyState
 								title="Timeline is starting"
-								description="The first update will appear here as the dummy service records it."
+								description="The first update will appear here as your application progresses."
 							/>
 						)}
 					</div>
@@ -131,29 +155,36 @@ function ApplicationDetail() {
 				<aside className="space-y-5">
 					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
 						<h2 className="text-lg font-semibold text-slate-950">
-							Review details
+							AI screening
 						</h2>
-						<div className="mt-4 space-y-3 text-sm text-slate-700">
-							<p>Reviewer: {interviewerLabel(slot)}</p>
-							<p>Fit score: {match}%</p>
-							<p>Matched: {skills.matched.join(", ") || "Review pending"}</p>
-							<p>
-								May be reviewed:{" "}
-								{skills.unmatched.join(", ") || "No clear gaps in profile"}
-							</p>
-						</div>
-					</section>
-
-					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-						<h2 className="text-lg font-semibold text-slate-950">Interview</h2>
-						<p className="mt-3 text-sm text-slate-700">{interviewTime(slot)}</p>
-						{slot?.meetLink ? (
-							<a href={slot.meetLink} target="_blank" rel="noreferrer">
-								<Button className="mt-4 w-full">Join interview</Button>
-							</a>
+						{screening ? (
+							<div className="mt-4 space-y-3 text-sm text-slate-700">
+								<p>
+									Match score:{" "}
+									<span className="font-semibold text-slate-950">
+										{screening.matchPercentage}%
+									</span>
+								</p>
+								<p>
+									Matched:{" "}
+									{screening.matchedSkills?.length
+										? screening.matchedSkills.join(", ")
+										: "—"}
+								</p>
+								<p>
+									Gaps:{" "}
+									{screening.unmatchedSkills?.length
+										? screening.unmatchedSkills.join(", ")
+										: "No clear gaps"}
+								</p>
+								<p className="text-xs text-slate-500">
+									Scored {formatDateTime(screening.createdAt)}
+								</p>
+							</div>
 						) : (
 							<p className="mt-3 text-sm text-slate-500">
-								No interview is scheduled yet.
+								AI screening is still processing. Refresh in a
+								moment to see the result.
 							</p>
 						)}
 					</section>

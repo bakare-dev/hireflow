@@ -30,11 +30,6 @@ function ApplicationDetail() {
 		});
 	}, [application?.stageUpdates]);
 
-	const latestReason = useMemo(
-		() => [...timeline].reverse().find((update) => update.reason),
-		[timeline],
-	);
-
 	if (isLoading) {
 		return (
 			<EmptyState
@@ -47,7 +42,11 @@ function ApplicationDetail() {
 	if (isError || !application) {
 		return (
 			<EmptyState
-				title={error?.status === 404 ? "Application not found" : "Unable to load application"}
+				title={
+					error?.status === 404
+						? "Application not found"
+						: "Unable to load application"
+				}
 				description={
 					error?.message ??
 					"This application may no longer be available."
@@ -56,7 +55,6 @@ function ApplicationDetail() {
 		);
 	}
 
-	const screening = application.screeningResult;
 	const jobTitle = application.jobTitle ?? "Role";
 	const companyName = application.companyName ?? "Company";
 
@@ -121,18 +119,22 @@ function ApplicationDetail() {
 									</div>
 									<div className="pb-5">
 										<p className="font-semibold text-slate-950">
-											{STAGE_LABELS[update.currentStage] ??
-												update.currentStage}
+											{STAGE_LABELS[
+												update.currentStage
+											] ?? update.currentStage}
 										</p>
 										<p className="mt-1 text-sm text-slate-600">
 											{formatDateTime(update.createdAt)}
-											{update.actor ? ` · ${update.actor}` : ""}
+											{update.actor
+												? ` · ${update.actor}`
+												: ""}
 										</p>
 										{update.previousStage ? (
 											<p className="mt-2 text-sm text-slate-700">
 												Moved from{" "}
-												{STAGE_LABELS[update.previousStage] ??
-													update.previousStage}
+												{STAGE_LABELS[
+													update.previousStage
+												] ?? update.previousStage}
 											</p>
 										) : null}
 										{update.reason ? (
@@ -151,55 +153,6 @@ function ApplicationDetail() {
 						)}
 					</div>
 				</section>
-
-				<aside className="space-y-5">
-					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-						<h2 className="text-lg font-semibold text-slate-950">
-							AI screening
-						</h2>
-						{screening ? (
-							<div className="mt-4 space-y-3 text-sm text-slate-700">
-								<p>
-									Match score:{" "}
-									<span className="font-semibold text-slate-950">
-										{screening.matchPercentage}%
-									</span>
-								</p>
-								<p>
-									Matched:{" "}
-									{screening.matchedSkills?.length
-										? screening.matchedSkills.join(", ")
-										: "—"}
-								</p>
-								<p>
-									Gaps:{" "}
-									{screening.unmatchedSkills?.length
-										? screening.unmatchedSkills.join(", ")
-										: "No clear gaps"}
-								</p>
-								<p className="text-xs text-slate-500">
-									Scored {formatDateTime(screening.createdAt)}
-								</p>
-							</div>
-						) : (
-							<p className="mt-3 text-sm text-slate-500">
-								AI screening is still processing. Refresh in a
-								moment to see the result.
-							</p>
-						)}
-					</section>
-
-					{latestReason ? (
-						<section className="rounded-xl border border-rose-200 bg-rose-50 p-5">
-							<h2 className="text-lg font-semibold text-rose-950">
-								Decision reason
-							</h2>
-							<p className="mt-3 text-sm leading-6 text-rose-800">
-								{latestReason.reason}
-							</p>
-						</section>
-					) : null}
-				</aside>
 			</div>
 		</div>
 	);

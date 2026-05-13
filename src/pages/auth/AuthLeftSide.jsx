@@ -1,15 +1,15 @@
 const HIGHLIGHTS = [
 	{
-		title: "AI-assisted screening",
-		body: "Match percentage and skill alignment surfaced on every applicant card.",
+		title: "Know where you stand",
+		body: "Applicants see their match score, current stage, and next step on every application — no silent rejections.",
 	},
 	{
-		title: "Structured scoresheets",
-		body: "Five-criterion evaluations turn gut feel into comparable signal.",
+		title: "Apply with one profile",
+		body: "Build your resume profile once and reuse it across every role; AI screening kicks in the moment you apply.",
 	},
 	{
-		title: "Transparent pipeline",
-		body: "Every notification names the current stage and what's next.",
+		title: "Fairer reviews for everyone",
+		body: "Structured five-criterion scoresheets give recruiters comparable signal and candidates consistent feedback.",
 	},
 ];
 

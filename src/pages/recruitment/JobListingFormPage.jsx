@@ -50,8 +50,6 @@ function JobListingFormPage() {
 
 	const [form, setForm] = useState(() => initForm(existingJob));
 	const [hydratedFromId, setHydratedFromId] = useState(existingJob?.id);
-	// On edit, `answer` is not returned by the API; only replace the existing
-	// questions when the user explicitly chooses to.
 	const [replaceQuestions, setReplaceQuestions] = useState(!isEdit);
 
 	if (isEdit && existingJob && existingJob.id !== hydratedFromId) {
@@ -124,9 +122,6 @@ function JobListingFormPage() {
 			skillIds: form.skills.map((s) => s.id),
 		};
 
-		// Screening questions: send only when creating or when the user opted
-		// to replace them on edit (the API fully replaces the list, and each
-		// item requires an `answer` which the API never returns).
 		if (!isEdit || replaceQuestions) {
 			const trimmedQuestions = form.questions
 				.map((q) => ({
@@ -304,10 +299,10 @@ function JobListingFormPage() {
 									Screening Questions
 								</h2>
 								<p className="mt-1 text-xs text-slate-500">
-									Role-specific questions plus the ideal answer
-									used by the AI for evaluation. Ideal answers
-									are stored privately and never returned by the
-									API.
+									Role-specific questions plus the ideal
+									answer used by the AI for evaluation. Ideal
+									answers are stored privately and never
+									returned by the API.
 								</p>
 							</div>
 							{isEdit && !replaceQuestions ? (
@@ -547,8 +542,6 @@ function initForm(job) {
 		autoRejectThreshold: String(job.autoRejectThreshold ?? "40"),
 		autoPassThreshold: String(job.autoPassThreshold ?? "75"),
 		status: job.status ?? "DRAFT",
-		// The API never returns `answer`; start with an empty list so the user
-		// must opt in to replace before re-entering ideal answers.
 		questions: [],
 	};
 }

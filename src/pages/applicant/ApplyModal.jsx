@@ -4,6 +4,7 @@ import Modal from "../../components/common/Modal";
 import MatchPercentBar from "../../components/domain/MatchPercentBar";
 import useToast from "../../hooks/useToast";
 import { useApplyToJobMutation } from "../../api/applicationsApi";
+import { useGetJobQuery } from "../../api/jobsApi";
 import { useGetResumeProfileQuery } from "../../api/resumeApi";
 import {
 	computeMatchPercent,
@@ -11,12 +12,41 @@ import {
 	matchSkills,
 } from "../../utils/applicant";
 
-function ApplyModal({ job, open, onClose, existingApplication }) {
+function ApplyModal({ job: jobProp, open, onClose, existingApplication }) {
 	const toast = useToast();
 	const [step, setStep] = useState(0);
 	const { data: resumeProfile, isLoading: isResumeLoading } =
 		useGetResumeProfileQuery();
 	const [applyToJob, { isLoading: submitting }] = useApplyToJobMutation();
+	const { data: fetchedJob, isLoading: isJobLoading } = useGetJobQuery(
+		jobProp?.id ?? "",
+		{ skip: !jobProp?.id || !open },
+	);
+	const job = useMemo(
+		() => ({ ...(jobProp ?? {}), ...(fetchedJob ?? {}) }),
+		[jobProp, fetchedJob],
+	);
+	const jobQuestions = useMemo(
+		() => (Array.isArray(job.questions) ? job.questions : []),
+		[job],
+	);
+	const hasQuestions = jobQuestions.length > 0;
+	const [answers, setAnswers] = useState({});
+
+	function setAnswer(questionId, value) {
+		setAnswers((current) => ({ ...current, [questionId]: value }));
+	}
+
+	const blockClipboard = {
+		onPaste: (e) => {
+			e.preventDefault();
+			toast.error("Pasting is disabled — please type your answer.");
+		},
+		onCopy: (e) => e.preventDefault(),
+		onCut: (e) => e.preventDefault(),
+		onDrop: (e) => e.preventDefault(),
+		onContextMenu: (e) => e.preventDefault(),
+	};
 
 	const match = useMemo(
 		() => computeMatchPercent(job, resumeProfile),
@@ -29,6 +59,7 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 
 	function close() {
 		setStep(0);
+		setAnswers({});
 		onClose?.();
 	}
 
@@ -38,12 +69,35 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 			toast.error("Upload your resume profile before applying.");
 			return;
 		}
+		if (hasQuestions) {
+			const missing = jobQuestions.find(
+				(q) => !(answers[q.id] ?? "").trim(),
+			);
+			if (missing) {
+				toast.error("Please answer every screening question.");
+				return;
+			}
+		}
 		try {
-			await applyToJob(job.id).unwrap();
-			toast.success("Application submitted. We will keep the status clear.");
+			const payloadAnswers = hasQuestions
+				? jobQuestions.map((q) => ({
+						questionId: q.id,
+						answer: answers[q.id].trim(),
+					}))
+				: undefined;
+			await applyToJob(
+				payloadAnswers
+					? { jobId: job.id, answers: payloadAnswers }
+					: job.id,
+			).unwrap();
+			toast.success(
+				"Application submitted. We will keep the status clear.",
+			);
 			close();
 		} catch (err) {
-			toast.error(err?.message ?? "We could not submit this application.");
+			toast.error(
+				err?.message ?? "We could not submit this application.",
+			);
 		}
 	}
 
@@ -58,15 +112,20 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 			title: "Confirm your resume",
 			body: (
 				<div className="space-y-4">
-					{isResumeLoading ? (
+					{isResumeLoading || isJobLoading ? (
 						<p className="text-sm text-slate-600">
-							Loading your resume profile…
+							{isJobLoading
+								? "Loading the latest job details…"
+								: "Loading your resume profile…"}
 						</p>
 					) : resumeProfile ? (
 						<div className="space-y-3 rounded-lg border border-slate-200 p-4">
 							<div>
 								<p className="text-sm font-semibold text-slate-950">
-									{[resumeProfile.firstName, resumeProfile.lastName]
+									{[
+										resumeProfile.firstName,
+										resumeProfile.lastName,
+									]
 										.filter(Boolean)
 										.join(" ") ||
 										resumeProfile.email ||
@@ -83,21 +142,23 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 							) : null}
 							{resumeSkillNames.length ? (
 								<div className="flex flex-wrap gap-2">
-									{resumeSkillNames.slice(0, 12).map((name) => (
-										<span
-											key={name}
-											className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
-										>
-											{name}
-										</span>
-									))}
+									{resumeSkillNames
+										.slice(0, 12)
+										.map((name) => (
+											<span
+												key={name}
+												className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+											>
+												{name}
+											</span>
+										))}
 								</div>
 							) : null}
 						</div>
 					) : (
 						<p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-							You need a resume profile on file before applying. Add
-							one in your profile and come back.
+							You need a resume profile on file before applying.
+							Add one in your profile and come back.
 						</p>
 					)}
 					<div>
@@ -109,6 +170,53 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 				</div>
 			),
 		},
+		...(hasQuestions
+			? [
+					{
+						title: "Screening questions",
+						body: (
+							<div className="space-y-4">
+								<p className="text-sm text-slate-600">
+									{job.companyName ?? "The team"} would like a
+									few answers from you. Please type your
+									responses — pasting is disabled so the team
+									hears your own words.
+								</p>
+								{jobQuestions.map((q, index) => (
+									<div
+										key={q.id ?? index}
+										className="space-y-2 rounded-lg border border-slate-200 p-4"
+									>
+										<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+											Question {index + 1}
+										</p>
+										<p className="text-sm font-medium text-slate-900">
+											{q.question}
+										</p>
+										<textarea
+											value={answers[q.id] ?? ""}
+											onChange={(e) =>
+												setAnswer(q.id, e.target.value)
+											}
+											rows={4}
+											maxLength={5000}
+											required
+											autoComplete="off"
+											spellCheck={false}
+											placeholder="Type your answer..."
+											className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+											{...blockClipboard}
+										/>
+										<p className="text-right text-xs text-slate-400">
+											{(answers[q.id] ?? "").length}/5000
+										</p>
+									</div>
+								))}
+							</div>
+						),
+					},
+				]
+			: []),
 		{
 			title: "Review and send",
 			body: (
@@ -125,14 +233,18 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 					</div>
 					<div className="grid gap-3 rounded-lg border border-slate-200 p-4 text-sm sm:grid-cols-2">
 						<div>
-							<p className="font-medium text-slate-950">Matched skills</p>
+							<p className="font-medium text-slate-950">
+								Matched skills
+							</p>
 							<p className="mt-1 text-slate-600">
 								{skills.matched.join(", ") ||
 									"We will learn more from your resume."}
 							</p>
 						</div>
 						<div>
-							<p className="font-medium text-slate-950">May be reviewed</p>
+							<p className="font-medium text-slate-950">
+								May be reviewed
+							</p>
 							<p className="mt-1 text-slate-600">
 								{skills.unmatched.join(", ") ||
 									"No obvious gaps from your profile."}
@@ -141,7 +253,8 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 					</div>
 					<p className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
 						Submitting will share your resume profile with{" "}
-						{job.companyName ?? "the company"} and queue AI screening.
+						{job.companyName ?? "the company"} and queue AI
+						screening.
 					</p>
 				</div>
 			),
@@ -162,7 +275,10 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 				) : (
 					<>
 						{step > 0 ? (
-							<Button variant="ghost" onClick={() => setStep((s) => s - 1)}>
+							<Button
+								variant="ghost"
+								onClick={() => setStep((s) => s - 1)}
+							>
 								Back
 							</Button>
 						) : null}
@@ -172,7 +288,16 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 									? submit
 									: () => setStep((s) => s + 1)
 							}
-							disabled={submitting || (step === 0 && !resumeProfile)}
+							disabled={
+								submitting ||
+								(step === 0 && !resumeProfile) ||
+								(hasQuestions &&
+									steps[step]?.title ===
+										"Screening questions" &&
+									jobQuestions.some(
+										(q) => !(answers[q.id] ?? "").trim(),
+									))
+							}
 						>
 							{step === steps.length - 1
 								? submitting
@@ -186,8 +311,8 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 		>
 			{existingApplication ? (
 				<p className="text-sm text-slate-600">
-					You already applied to this role. Your application status will stay
-					visible across job cards and application tracking.
+					You already applied to this role. Your application status
+					will stay visible across job cards and application tracking.
 				</p>
 			) : (
 				<div>
@@ -196,7 +321,9 @@ function ApplyModal({ job, open, onClose, existingApplication }) {
 							<span
 								key={item.title}
 								className={`h-1.5 flex-1 rounded-full ${
-									idx <= step ? "bg-slate-950" : "bg-slate-200"
+									idx <= step
+										? "bg-slate-950"
+										: "bg-slate-200"
 								}`}
 							/>
 						))}

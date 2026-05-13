@@ -37,6 +37,7 @@ import DashboardPage from "../pages/recruitment/DashboardPage";
 import JobListingsPage from "../pages/recruitment/JobListingsPage";
 import JobDetailDashboardPage from "../pages/recruitment/JobDetailDashboardPage";
 import JobListingFormPage from "../pages/recruitment/JobListingFormPage";
+import JobApplicationsPage from "../pages/recruitment/JobApplicationsPage";
 import CandidatesPage from "../pages/recruitment/CandidatesPage";
 import AIScreeningCenterPage from "../pages/recruitment/AIScreeningCenterPage";
 import InterviewCalendarPage from "../pages/recruitment/InterviewCalendarPage";
@@ -172,6 +173,10 @@ function AppRoutes() {
 				<Route
 					path={ROUTES.JOB_DETAIL()}
 					element={<JobDetailDashboardPage />}
+				/>
+				<Route
+					path={ROUTES.JOB_APPLICATIONS()}
+					element={<JobApplicationsPage />}
 				/>
 				<Route
 					path={ROUTES.CANDIDATES}

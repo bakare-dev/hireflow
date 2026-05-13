@@ -76,6 +76,11 @@ function JobDetailDashboardPage() {
 				description={`${job.location || "Location not set"} · ${typeLabel}`}
 				actions={
 					<div className="flex items-center gap-2">
+						<Link to={ROUTES.JOB_APPLICATIONS(job.id)}>
+							<Button size="sm" variant="secondary">
+								View applications
+							</Button>
+						</Link>
 						<Link to={ROUTES.JOB_LISTING_EDIT(job.id)}>
 							<Button size="sm" variant="secondary">
 								Edit

@@ -6,7 +6,7 @@ import Topbar from "./Topbar";
 import { cn } from "../utils/classnames";
 
 const NAV_ITEMS = [
-	{ label: "Find Jobs", to: ROUTES.APPLICANT_JOBS, end: true },
+	{ label: "Find Jobs", to: ROUTES.APPLICANT_JOBS },
 	{ label: "My Applications", to: ROUTES.APPLICANT_APPLICATIONS },
 	{ label: "Messages", to: ROUTES.APPLICANT_MESSAGES },
 	{ label: "Interviews", to: ROUTES.APPLICANT_INTERVIEWS },
@@ -19,14 +19,15 @@ function ApplicantLayout() {
 
 	return (
 		<div className="min-h-screen bg-slate-50">
-			<Topbar title={`Hi${user?.name ? `, ${user.name.split(" ")[0]}` : ""}`} />
+			<Topbar
+				title={`Hi${user?.name ? `, ${user.name.split(" ")[0]}` : ""}`}
+			/>
 			<nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6">
 				<div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto py-3">
 					{NAV_ITEMS.map((item) => (
 						<NavLink
 							key={item.to}
 							to={item.to}
-							end={item.end}
 							className={({ isActive }) =>
 								cn(
 									"whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition",

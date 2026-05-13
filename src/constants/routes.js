@@ -33,6 +33,7 @@ export const ROUTES = Object.freeze({
 	JOB_LISTING_NEW: "/job-listings/new",
 	JOB_LISTING_EDIT: (id = ":id") => `/job-listings/${id}/edit`,
 	JOB_DETAIL: (id = ":id") => `/job-listings/${id}`,
+	JOB_APPLICATIONS: (id = ":id") => `/job-listings/${id}/applications`,
 	CANDIDATES: "/candidates",
 	INTERVIEWS: "/interviews",
 	INTERVIEW_FEEDBACK: (id = ":id") => `/interviews/${id}/feedback`,

@@ -169,6 +169,18 @@ function JobListingsPage() {
 													</Button>
 												</Link>
 												<Link
+													to={ROUTES.JOB_APPLICATIONS(
+														job.id,
+													)}
+												>
+													<Button
+														variant="secondary"
+														size="sm"
+													>
+														View applications
+													</Button>
+												</Link>
+												<Link
 													to={ROUTES.JOB_LISTING_EDIT(
 														job.id,
 													)}

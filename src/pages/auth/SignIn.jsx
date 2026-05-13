@@ -59,14 +59,14 @@ function SignIn() {
 					placeholder="••••••••"
 				/>
 
-				<div className="flex justify-end text-sm">
+				{/* <div className="flex justify-end text-sm">
 					<Link
 						to={ROUTES.PASSWORD_RESET}
 						className="font-medium text-slate-900 hover:underline"
 					>
 						Forgot password?
 					</Link>
-				</div>
+				</div> */}
 
 				<Button type="submit" className="w-full" disabled={isLoading}>
 					{isLoading ? "Signing in…" : "Sign in"}
@@ -81,12 +81,6 @@ function SignIn() {
 				>
 					Create an account
 				</Link>
-			</p>
-
-			<p className="text-center text-xs text-slate-400">
-				Prototype tip: try{" "}
-				<span className="font-mono">priya@example.com</span> or{" "}
-				<span className="font-mono">harvey@acme.test</span>.
 			</p>
 		</div>
 	);

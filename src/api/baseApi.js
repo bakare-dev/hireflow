@@ -10,6 +10,7 @@ export const baseApi = createApi({
 		"Interviews",
 		"Notifications",
 		"Companies",
+		"Staff",
 	],
 	endpoints: () => ({}),
 });

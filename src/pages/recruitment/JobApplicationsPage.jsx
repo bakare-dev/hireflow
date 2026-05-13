@@ -86,8 +86,8 @@ function JobApplicationsPage() {
 								<tr>
 									<Th>Applicant</Th>
 									<Th>Stage</Th>
-									<Th>Match</Th>
 									<Th>Submitted</Th>
+									<Th>Actions</Th>
 								</tr>
 							</thead>
 							<tbody>
@@ -115,14 +115,21 @@ function JobApplicationsPage() {
 											</Badge>
 										</Td>
 										<Td>
-											{app.screeningResult?.matchPercentage != null
-												? `${app.screeningResult.matchPercentage}%`
-												: "—"}
-										</Td>
-										<Td>
 											{app.createdAt
 												? new Date(app.createdAt).toLocaleDateString()
 												: "—"}
+										</Td>
+										<Td>
+											<Link
+												to={ROUTES.JOB_APPLICATION_DETAIL(
+													jobId,
+													app.id,
+												)}
+											>
+												<Button size="sm" variant="secondary">
+													View
+												</Button>
+											</Link>
 										</Td>
 									</tr>
 								))}

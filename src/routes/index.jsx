@@ -2,10 +2,8 @@ import { Navigate, Route, Routes } from "react-router";
 import { useSelector } from "react-redux";
 import { ROUTES } from "../constants/routes";
 import { ROLE_HOME_PATHS, USER_ROLES } from "../constants/roles";
-import {
-	selectAuthRole,
-	selectAuthStatus,
-} from "../store/slices/authSlice";
+import { selectAuthRole, selectAuthStatus } from "../store/slices/authSlice";
+import useSyncMyProfile from "../hooks/useSyncMyProfile";
 
 import PublicLayout from "../layout/PublicLayout";
 import ApplicantLayout from "../layout/ApplicantLayout";
@@ -13,13 +11,12 @@ import RecruitmentLayout from "../layout/RecruitmentLayout";
 import RoleGuard from "./RoleGuard";
 
 import NotFound from "../pages/shared/NotFound";
-import Forbidden from "../pages/shared/Forbidden";
 import ComingSoon from "../pages/shared/ComingSoon";
-import RoleSwitch from "../pages/auth/RoleSwitch";
 import Auth from "../pages/auth/Auth";
 import SignIn from "../pages/auth/SignIn";
 import SignUp from "../pages/auth/SignUp";
 import PasswordReset from "../pages/auth/PasswordReset";
+import AcceptInvite from "../pages/auth/AcceptInvite";
 import JobDiscovery from "../pages/applicant/JobDiscovery";
 import JobDetail from "../pages/applicant/JobDetail";
 import MyApplications from "../pages/applicant/MyApplications";
@@ -38,6 +35,7 @@ import JobListingsPage from "../pages/recruitment/JobListingsPage";
 import JobDetailDashboardPage from "../pages/recruitment/JobDetailDashboardPage";
 import JobListingFormPage from "../pages/recruitment/JobListingFormPage";
 import JobApplicationsPage from "../pages/recruitment/JobApplicationsPage";
+import JobApplicationDetailPage from "../pages/recruitment/JobApplicationDetailPage";
 import CandidatesPage from "../pages/recruitment/CandidatesPage";
 import AIScreeningCenterPage from "../pages/recruitment/AIScreeningCenterPage";
 import InterviewCalendarPage from "../pages/recruitment/InterviewCalendarPage";
@@ -58,21 +56,16 @@ function RootRedirect() {
 		return <Navigate to={ROUTES.SIGN_IN} replace />;
 	}
 
-	return (
-		<Navigate
-			to={ROLE_HOME_PATHS[role] ?? ROUTES.SIGN_IN}
-			replace
-		/>
-	);
+	return <Navigate to={ROLE_HOME_PATHS[role] ?? ROUTES.SIGN_IN} replace />;
 }
 
 function AppRoutes() {
+	useSyncMyProfile();
+
 	return (
 		<Routes>
 			<Route element={<PublicLayout />}>
 				<Route index element={<RootRedirect />} />
-				<Route path={ROUTES.DEV_ROLE_SWITCH} element={<RoleSwitch />} />
-				<Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
 			</Route>
 
 			<Route element={<Auth />}>
@@ -82,6 +75,7 @@ function AppRoutes() {
 					path={ROUTES.PASSWORD_RESET}
 					element={<PasswordReset />}
 				/>
+				<Route path={ROUTES.ACCEPT_INVITE} element={<AcceptInvite />} />
 			</Route>
 
 			<Route
@@ -115,10 +109,7 @@ function AppRoutes() {
 					path={ROUTES.APPLICANT_INTERVIEWS}
 					element={<Interviews />}
 				/>
-				<Route
-					path={ROUTES.APPLICANT_PROFILE}
-					element={<Profile />}
-				/>
+				<Route path={ROUTES.APPLICANT_PROFILE} element={<Profile />} />
 				<Route
 					path={ROUTES.APPLICANT_COMPANY_REVIEWS}
 					element={<CompanyReviewsHome />}
@@ -154,10 +145,7 @@ function AppRoutes() {
 					</RoleGuard>
 				}
 			>
-				<Route
-					path={ROUTES.DASHBOARD}
-					element={<DashboardPage />}
-				/>
+				<Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
 				<Route
 					path={ROUTES.JOB_LISTINGS}
 					element={<JobListingsPage />}
@@ -179,9 +167,10 @@ function AppRoutes() {
 					element={<JobApplicationsPage />}
 				/>
 				<Route
-					path={ROUTES.CANDIDATES}
-					element={<CandidatesPage />}
+					path={ROUTES.JOB_APPLICATION_DETAIL()}
+					element={<JobApplicationDetailPage />}
 				/>
+				<Route path={ROUTES.CANDIDATES} element={<CandidatesPage />} />
 				<Route
 					path={ROUTES.INTERVIEWS}
 					element={<InterviewCalendarPage />}
@@ -190,10 +179,7 @@ function AppRoutes() {
 					path={ROUTES.INTERVIEW_FEEDBACK()}
 					element={<InterviewFeedbackWorkspacePage />}
 				/>
-				<Route
-					path={ROUTES.OFFERS}
-					element={<OffersDashboardPage />}
-				/>
+				<Route path={ROUTES.OFFERS} element={<OffersDashboardPage />} />
 				<Route
 					path={ROUTES.AI_SCREENING}
 					element={<AIScreeningCenterPage />}
@@ -227,10 +213,7 @@ function AppRoutes() {
 					path={ROUTES.REVIEW_MODERATION}
 					element={<ReviewModerationPage />}
 				/>
-				<Route
-					path={ROUTES.AUDIT_LOGS}
-					element={<AuditLogsPage />}
-				/>
+				<Route path={ROUTES.AUDIT_LOGS} element={<AuditLogsPage />} />
 				<Route
 					path={ROUTES.ORGANIZATION_SETTINGS}
 					element={<OrganizationSettingsPage />}

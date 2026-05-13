@@ -8,10 +8,10 @@ import { cn } from "../utils/classnames";
 const NAV_ITEMS = [
 	{ label: "Find Jobs", to: ROUTES.APPLICANT_JOBS },
 	{ label: "My Applications", to: ROUTES.APPLICANT_APPLICATIONS },
-	{ label: "Messages", to: ROUTES.APPLICANT_MESSAGES },
+	// { label: "Messages", to: ROUTES.APPLICANT_MESSAGES },
 	{ label: "Interviews", to: ROUTES.APPLICANT_INTERVIEWS },
 	{ label: "Profile", to: ROUTES.APPLICANT_PROFILE },
-	{ label: "Company Reviews", to: ROUTES.APPLICANT_COMPANY_REVIEWS },
+	// { label: "Company Reviews", to: ROUTES.APPLICANT_COMPANY_REVIEWS },
 ];
 
 function ApplicantLayout() {

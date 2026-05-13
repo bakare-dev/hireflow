@@ -9,7 +9,8 @@ import { SEED_COMPANIES } from "../../data";
 
 function OrganizationSettingsPage() {
 	const user = useSelector(selectAuthUser);
-	const company = SEED_COMPANIES.find((item) => item.id === user?.companyId) ?? null;
+	const company =
+		SEED_COMPANIES.find((item) => item.id === user?.companyId) ?? null;
 	const [state, setState] = useState({
 		companyName: company?.name ?? "Organization",
 		logo: "Not uploaded",
@@ -43,71 +44,14 @@ function OrganizationSettingsPage() {
 					<Input
 						label="Company name"
 						value={state.companyName}
-						onChange={(event) => update("companyName", event.target.value)}
+						onChange={(event) =>
+							update("companyName", event.target.value)
+						}
 					/>
 					<Input
 						label="Logo"
 						value={state.logo}
 						onChange={(event) => update("logo", event.target.value)}
-					/>
-				</SettingsCard>
-
-				<SettingsCard title="Workflow Settings">
-					<Input
-						label="Pipeline stages"
-						value={state.pipelineStages}
-						onChange={(event) => update("pipelineStages", event.target.value)}
-					/>
-					<Input
-						label="Interview defaults"
-						value={state.interviewDefaults}
-						onChange={(event) => update("interviewDefaults", event.target.value)}
-					/>
-					<Input
-						label="Offer approval settings"
-						value={state.offerApproval}
-						onChange={(event) => update("offerApproval", event.target.value)}
-					/>
-				</SettingsCard>
-
-				<SettingsCard title="AI Settings">
-					<Input
-						label="Auto-pass threshold"
-						value={state.autoPassThreshold}
-						onChange={(event) => update("autoPassThreshold", event.target.value)}
-					/>
-					<Input
-						label="Auto-reject threshold"
-						value={state.autoRejectThreshold}
-						onChange={(event) => update("autoRejectThreshold", event.target.value)}
-					/>
-					<Input
-						label="Resume parsing rules"
-						value={state.resumeRules}
-						onChange={(event) => update("resumeRules", event.target.value)}
-					/>
-				</SettingsCard>
-
-				<SettingsCard title="Integrations">
-					<Input
-						label="Google Meet"
-						value={state.integrationMeet}
-						onChange={(event) => update("integrationMeet", event.target.value)}
-					/>
-					<Input
-						label="Calendar integration"
-						value={state.integrationCalendar}
-						onChange={(event) => update("integrationCalendar", event.target.value)}
-					/>
-					<Input
-						label="Email provider"
-						value={state.integrationEmail}
-						onChange={(event) => update("integrationEmail", event.target.value)}
-					/>
-					<Input
-						label="Webhook URL"
-						value={state.webhookUrl}
-						onChange={(event) => update("webhookUrl", event.target.value)}
 					/>
 				</SettingsCard>
 			</div>
@@ -119,7 +63,9 @@ function SettingsCard({ title, children }) {
 	return (
 		<Card>
 			<CardHeader>
-				<h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+				<h2 className="text-sm font-semibold text-slate-900">
+					{title}
+				</h2>
 			</CardHeader>
 			<CardBody className="space-y-3">{children}</CardBody>
 		</Card>

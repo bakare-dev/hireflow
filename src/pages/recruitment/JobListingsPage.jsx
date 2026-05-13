@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
 import Card, { CardBody, CardHeader } from "../../components/common/Card";
@@ -19,6 +20,7 @@ import useToast from "../../hooks/useToast";
 
 function JobListingsPage() {
 	const toast = useToast();
+	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
 	const [status, setStatus] = useState("");
 	const [pendingDelete, setPendingDelete] = useState(null);
@@ -79,7 +81,7 @@ function JobListingsPage() {
 						label="Search jobs"
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
-						placeholder="Title or location"
+						placeholder="Title"
 					/>
 					<Select
 						label="Status"
@@ -152,57 +154,52 @@ function JobListingsPage() {
 										</Td>
 										<Td>
 											<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
-												{JOB_STATUS_LABELS[job.status] ??
-													job.status}
+												{JOB_STATUS_LABELS[
+													job.status
+												] ?? job.status}
 											</Badge>
 										</Td>
 										<Td>
-											<div className="flex flex-wrap gap-2">
-												<Link
-													to={ROUTES.JOB_DETAIL(job.id)}
-												>
-													<Button
-														variant="secondary"
-														size="sm"
-													>
-														View
-													</Button>
-												</Link>
-												<Link
-													to={ROUTES.JOB_APPLICATIONS(
-														job.id,
-													)}
-												>
-													<Button
-														variant="secondary"
-														size="sm"
-													>
-														View applications
-													</Button>
-												</Link>
-												<Link
-													to={ROUTES.JOB_LISTING_EDIT(
-														job.id,
-													)}
-												>
-													<Button
-														variant="secondary"
-														size="sm"
-													>
-														Edit
-													</Button>
-												</Link>
-												<Button
-													variant="danger"
-													size="sm"
-													onClick={() =>
-														setPendingDelete(job)
-													}
-													disabled={isDeleting}
-												>
-													Delete
-												</Button>
-											</div>
+											<ActionsMenu
+												items={[
+													{
+														label: "View",
+														onSelect: () =>
+															navigate(
+																ROUTES.JOB_DETAIL(
+																	job.id,
+																),
+															),
+													},
+													{
+														label: "View applications",
+														onSelect: () =>
+															navigate(
+																ROUTES.JOB_APPLICATIONS(
+																	job.id,
+																),
+															),
+													},
+													{
+														label: "Edit",
+														onSelect: () =>
+															navigate(
+																ROUTES.JOB_LISTING_EDIT(
+																	job.id,
+																),
+															),
+													},
+													{
+														label: "Delete",
+														variant: "danger",
+														disabled: isDeleting,
+														onSelect: () =>
+															setPendingDelete(
+																job,
+															),
+													},
+												]}
+											/>
 										</Td>
 									</tr>
 								))}
@@ -240,6 +237,107 @@ function Th({ children }) {
 
 function Td({ children }) {
 	return <td className="px-4 py-3 align-top">{children}</td>;
+}
+
+function ActionsMenu({ items }) {
+	const [open, setOpen] = useState(false);
+	const triggerRef = useRef(null);
+	const menuRef = useRef(null);
+	const [position, setPosition] = useState(null);
+
+	useLayoutEffect(() => {
+		if (!open || !triggerRef.current) return;
+		const rect = triggerRef.current.getBoundingClientRect();
+		setPosition({
+			top: rect.bottom + 4,
+			left: rect.right - 176,
+		});
+	}, [open]);
+
+	useEffect(() => {
+		if (!open) return undefined;
+		function handlePointerDown(event) {
+			const inTrigger = triggerRef.current?.contains(event.target);
+			const inMenu = menuRef.current?.contains(event.target);
+			if (!inTrigger && !inMenu) setOpen(false);
+		}
+		function handleKey(event) {
+			if (event.key === "Escape") setOpen(false);
+		}
+		function handleViewportChange() {
+			setOpen(false);
+		}
+		window.addEventListener("mousedown", handlePointerDown);
+		window.addEventListener("keydown", handleKey);
+		window.addEventListener("scroll", handleViewportChange, true);
+		window.addEventListener("resize", handleViewportChange);
+		return () => {
+			window.removeEventListener("mousedown", handlePointerDown);
+			window.removeEventListener("keydown", handleKey);
+			window.removeEventListener("scroll", handleViewportChange, true);
+			window.removeEventListener("resize", handleViewportChange);
+		};
+	}, [open]);
+
+	return (
+		<>
+			<button
+				ref={triggerRef}
+				type="button"
+				aria-haspopup="menu"
+				aria-expanded={open}
+				onClick={() => setOpen((o) => !o)}
+				className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900"
+			>
+				<span className="sr-only">Open actions menu</span>
+				<svg
+					aria-hidden
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					className="h-4 w-4"
+				>
+					<circle cx="10" cy="4" r="1.6" />
+					<circle cx="10" cy="10" r="1.6" />
+					<circle cx="10" cy="16" r="1.6" />
+				</svg>
+			</button>
+			{open && position
+				? createPortal(
+						<div
+							ref={menuRef}
+							role="menu"
+							style={{
+								position: "fixed",
+								top: position.top,
+								left: position.left,
+							}}
+							className="z-50 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+						>
+							{items.map((item) => (
+								<button
+									key={item.label}
+									type="button"
+									role="menuitem"
+									disabled={item.disabled}
+									onClick={() => {
+										setOpen(false);
+										item.onSelect?.();
+									}}
+									className={`block w-full px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+										item.variant === "danger"
+											? "text-rose-600 hover:bg-rose-50"
+											: "text-slate-700 hover:bg-slate-50"
+									}`}
+								>
+									{item.label}
+								</button>
+							))}
+						</div>,
+						document.body,
+					)
+				: null}
+		</>
+	);
 }
 
 export default JobListingsPage;

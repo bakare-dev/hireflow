@@ -49,8 +49,27 @@ export const authApi = baseApi.injectEndpoints({
 			},
 			invalidatesTags: ["Auth"],
 		}),
+		acceptInvite: builder.mutation({
+			async queryFn(payload) {
+				try {
+					const auth = await apiHandler.post("/auth/accept-invite", {
+						auth: false,
+						payload,
+					});
+					setAuthToken(auth.token);
+					return { data: toAuthUser(auth) };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			invalidatesTags: ["Auth"],
+		}),
 	}),
 });
 
-export const { useLoginMutation, useRegisterMutation, useVerifyOtpMutation } =
-	authApi;
+export const {
+	useLoginMutation,
+	useRegisterMutation,
+	useVerifyOtpMutation,
+	useAcceptInviteMutation,
+} = authApi;

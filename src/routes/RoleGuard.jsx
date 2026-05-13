@@ -7,6 +7,7 @@ import {
 } from "../store/slices/authSlice";
 import { ROUTES } from "../constants/routes";
 import Spinner from "../components/common/Spinner";
+import NotFound from "../pages/shared/NotFound";
 
 function RoleGuard({ allow, children }) {
 	const status = useSelector(selectAuthStatus);
@@ -34,7 +35,9 @@ function RoleGuard({ allow, children }) {
 
 	const allowed = Array.isArray(allow) ? allow : [allow];
 	if (!allowed.includes(role)) {
-		return <Navigate to={ROUTES.FORBIDDEN} replace />;
+		// No role switching anymore — a disallowed role just sees the
+		// not-found screen, same as any unknown URL.
+		return <NotFound />;
 	}
 
 	return children;

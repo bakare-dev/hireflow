@@ -23,12 +23,6 @@ function Landing() {
 				<Link to={ROUTES.SIGN_IN}>
 					<Button variant="secondary">Sign in</Button>
 				</Link>
-				<Link
-					to={ROUTES.DEV_ROLE_SWITCH}
-					className="text-sm text-slate-600 hover:text-slate-900"
-				>
-					Or jump in as a seeded user →
-				</Link>
 			</div>
 			<p className="mt-12 text-xs text-slate-400">
 				Visualisation only — all data is dummy and resets on reload.

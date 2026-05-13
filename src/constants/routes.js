@@ -3,8 +3,7 @@ export const ROUTES = Object.freeze({
 	SIGN_IN: "/sign-in",
 	SIGN_UP: "/sign-up",
 	PASSWORD_RESET: "/password-reset",
-	DEV_ROLE_SWITCH: "/dev/switch-role",
-	FORBIDDEN: "/403",
+	ACCEPT_INVITE: "/accept-invite",
 	NOT_FOUND: "*",
 
 	APPLICANT_HOME: "/applicant/jobs",
@@ -34,6 +33,8 @@ export const ROUTES = Object.freeze({
 	JOB_LISTING_EDIT: (id = ":id") => `/job-listings/${id}/edit`,
 	JOB_DETAIL: (id = ":id") => `/job-listings/${id}`,
 	JOB_APPLICATIONS: (id = ":id") => `/job-listings/${id}/applications`,
+	JOB_APPLICATION_DETAIL: (jobId = ":id", applicationId = ":applicationId") =>
+		`/job-listings/${jobId}/applications/${applicationId}`,
 	CANDIDATES: "/candidates",
 	INTERVIEWS: "/interviews",
 	INTERVIEW_FEEDBACK: (id = ":id") => `/interviews/${id}/feedback`,

@@ -50,8 +50,13 @@ function Topbar({ title, onMenuClick }) {
 						<div className="font-medium text-slate-950">
 							{user.name}
 						</div>
-						<div className="text-slate-500">
-							{ROLE_LABELS[user.role]}
+						{user.email ? (
+							<div className="truncate text-slate-500">
+								{user.email}
+							</div>
+						) : null}
+						<div className="text-slate-400">
+							{ROLE_LABELS[user.role] ?? user.role}
 						</div>
 					</div>
 				) : null}

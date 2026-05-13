@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
 import Card, { CardBody, CardHeader } from "../../components/common/Card";
 import EmptyState from "../../components/common/EmptyState";
+import Modal from "../../components/common/Modal";
 import PageHeader from "../../components/common/PageHeader";
 import RichTextViewer from "../../components/editor/RichTextViewer";
 import { ROUTES } from "../../constants/routes";
@@ -25,6 +27,7 @@ function JobApplicationDetailPage() {
 	} = useGetMyApplicationQuery(applicationId ?? "", {
 		skip: !applicationId,
 	});
+	const [resumeOpen, setResumeOpen] = useState(false);
 
 	if (isLoading) {
 		return (
@@ -123,7 +126,6 @@ function JobApplicationDetailPage() {
 				</CardBody>
 			</Card>
 
-			{/* --- Screening Result, grouped into four stages --------------- */}
 			{screeningResult ? (
 				<>
 					<ScreeningGroup
@@ -170,7 +172,9 @@ function JobApplicationDetailPage() {
 						title="Project Consistency"
 						description="Whether the listed projects align with the claimed experience."
 					>
-						<ScoreBlock signal={screeningResult.projectConsistency} />
+						<ScoreBlock
+							signal={screeningResult.projectConsistency}
+						/>
 					</ScreeningGroup>
 
 					<ScreeningGroup
@@ -182,7 +186,8 @@ function JobApplicationDetailPage() {
 								<Badge
 									className={
 										SEVERITY_STYLES[
-											screeningResult.inconsistencySeverity
+											screeningResult
+												.inconsistencySeverity
 										] ??
 										"bg-slate-100 text-slate-700 ring-slate-200"
 									}
@@ -197,8 +202,8 @@ function JobApplicationDetailPage() {
 							<Stat
 								label="Review score"
 								value={
-									screeningResult.inconsistencyReview?.score !=
-									null
+									screeningResult.inconsistencyReview
+										?.score != null
 										? `${screeningResult.inconsistencyReview.score}`
 										: "—"
 								}
@@ -216,9 +221,7 @@ function JobApplicationDetailPage() {
 						/>
 						<Detail
 							label="Recommended action"
-							value={
-								screeningResult.recommendedHumanReviewAction
-							}
+							value={screeningResult.recommendedHumanReviewAction}
 						/>
 					</ScreeningGroup>
 				</>
@@ -238,7 +241,6 @@ function JobApplicationDetailPage() {
 				</Card>
 			)}
 
-			{/* --- Screening question answers ------------------------------- */}
 			<Card>
 				<CardHeader>
 					<h2 className="text-sm font-semibold text-slate-900">
@@ -273,12 +275,61 @@ function JobApplicationDetailPage() {
 				</CardBody>
 			</Card>
 
-			{/* --- Resume profile ------------------------------------------ */}
-			{resumeProfile ? (
-				<ResumeProfile profile={resumeProfile} />
-			) : null}
+			<Card>
+				<CardHeader>
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<h2 className="text-sm font-semibold text-slate-900">
+							Resume
+						</h2>
+						{resumeProfile ? (
+							<Button
+								size="sm"
+								variant="secondary"
+								onClick={() => setResumeOpen(true)}
+							>
+								View resume
+							</Button>
+						) : null}
+					</div>
+				</CardHeader>
+				<CardBody>
+					{resumeProfile ? (
+						<p className="text-sm text-slate-600">
+							{[resumeProfile.firstName, resumeProfile.lastName]
+								.filter(Boolean)
+								.join(" ") ||
+								resumeProfile.email ||
+								"Applicant"}{" "}
+							· {resumeProfile.skills?.length ?? 0} skills ·{" "}
+							{resumeProfile.workExperiences?.length ?? 0} roles
+						</p>
+					) : (
+						<p className="text-sm text-slate-500">
+							The applicant has not uploaded a resume profile.
+						</p>
+					)}
+				</CardBody>
+			</Card>
 
-			{/* --- Stage history ------------------------------------------- */}
+			<Modal
+				open={resumeOpen}
+				onClose={() => setResumeOpen(false)}
+				title="Resume"
+				size="lg"
+				footer={
+					<Button
+						variant="secondary"
+						onClick={() => setResumeOpen(false)}
+					>
+						Close
+					</Button>
+				}
+			>
+				{resumeProfile ? (
+					<ResumeProfile profile={resumeProfile} />
+				) : null}
+			</Modal>
+
 			<Card>
 				<CardHeader>
 					<h2 className="text-sm font-semibold text-slate-900">
@@ -305,14 +356,16 @@ function JobApplicationDetailPage() {
 													? `${
 															STAGE_LABELS[
 																su.previousStage
-															] ?? su.previousStage
+															] ??
+															su.previousStage
 														} → ${
 															STAGE_LABELS[
 																su.currentStage
 															] ?? su.currentStage
 														}`
-													: STAGE_LABELS[su.currentStage] ??
-														su.currentStage}
+													: (STAGE_LABELS[
+															su.currentStage
+														] ?? su.currentStage)}
 											</p>
 											<p className="text-xs text-slate-500">
 												{su.reason} · {su.actor}
@@ -365,8 +418,7 @@ function ScreeningGroup({ number, title, description, headerExtra, children }) {
 
 function ScoreBlock({ signal }) {
 	const hasAny =
-		signal &&
-		(signal.score != null || signal.explanation || signal.review);
+		signal && (signal.score != null || signal.explanation || signal.review);
 
 	if (!hasAny) {
 		return (
@@ -488,10 +540,7 @@ function ResumeProfile({ profile }) {
 				<div className="grid gap-3 sm:grid-cols-2">
 					<Stat label="Name" value={fullName} />
 					<Stat label="Email" value={profile.email ?? "—"} />
-					<Stat
-						label="Phone"
-						value={profile.phoneNumber ?? "—"}
-					/>
+					<Stat label="Phone" value={profile.phoneNumber ?? "—"} />
 					<Stat
 						label="LinkedIn"
 						value={
@@ -562,7 +611,9 @@ function ResumeProfile({ profile }) {
 									</p>
 									{w.experience ? (
 										<div className="mt-2 text-sm text-slate-700">
-											<RichTextViewer content={w.experience} />
+											<RichTextViewer
+												content={w.experience}
+											/>
 										</div>
 									) : null}
 								</li>

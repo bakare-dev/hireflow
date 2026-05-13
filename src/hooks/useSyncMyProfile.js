@@ -8,13 +8,6 @@ import {
 } from "../store/slices/authSlice";
 import { normalizeApiRole } from "../utils/api";
 
-/**
- * Calls `GET /api/v1/users/me` whenever there's an authenticated session and
- * folds the response into the redux auth user so Topbar / Sidebar / pages all
- * see real `firstName`, `lastName`, `companyId`, `companyName`, and a `name`
- * derived from the actual profile (instead of the email-prefix fallback that
- * the login response can only give us).
- */
 function useSyncMyProfile() {
 	const dispatch = useDispatch();
 	const status = useSelector(selectAuthStatus);

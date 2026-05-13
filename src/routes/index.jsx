@@ -4,6 +4,7 @@ import { ROUTES } from "../constants/routes";
 import { ROLE_HOME_PATHS, USER_ROLES } from "../constants/roles";
 import { selectAuthRole, selectAuthStatus } from "../store/slices/authSlice";
 import useSyncMyProfile from "../hooks/useSyncMyProfile";
+import useApplicationStream from "../hooks/useApplicationStream";
 
 import PublicLayout from "../layout/PublicLayout";
 import ApplicantLayout from "../layout/ApplicantLayout";
@@ -61,6 +62,7 @@ function RootRedirect() {
 
 function AppRoutes() {
 	useSyncMyProfile();
+	useApplicationStream();
 
 	return (
 		<Routes>

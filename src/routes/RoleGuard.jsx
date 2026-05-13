@@ -35,8 +35,6 @@ function RoleGuard({ allow, children }) {
 
 	const allowed = Array.isArray(allow) ? allow : [allow];
 	if (!allowed.includes(role)) {
-		// No role switching anymore — a disallowed role just sees the
-		// not-found screen, same as any unknown URL.
 		return <NotFound />;
 	}
 

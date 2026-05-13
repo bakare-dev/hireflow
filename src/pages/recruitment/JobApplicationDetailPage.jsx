@@ -151,18 +151,24 @@ function JobApplicationDetailPage() {
 										/>
 										<TagList
 											label="Matched skills"
-											items={screeningResult.matchedSkills}
+											items={
+												screeningResult.matchedSkills
+											}
 											tone="positive"
 										/>
 										<TagList
 											label="Unmatched skills"
-											items={screeningResult.unmatchedSkills}
+											items={
+												screeningResult.unmatchedSkills
+											}
 											tone="negative"
 										/>
 									</div>
 									<Detail
 										label="AI narrative summary"
-										value={screeningResult.aiNarrativeSummary}
+										value={
+											screeningResult.aiNarrativeSummary
+										}
 									/>
 								</>
 							),
@@ -173,7 +179,9 @@ function JobApplicationDetailPage() {
 							description:
 								"AI's structured read of the resume itself.",
 							render: () => (
-								<ScoreBlock signal={screeningResult.resumeAnalysis} />
+								<ScoreBlock
+									signal={screeningResult.resumeAnalysis}
+								/>
 							),
 						},
 						{
@@ -192,26 +200,29 @@ function JobApplicationDetailPage() {
 							title: "Inconsistency Review",
 							description:
 								"Risk flags raised by comparing answers, skills, and resume evidence.",
-							headerExtra: screeningResult.inconsistencySeverity ? (
-								<Badge
-									className={
-										SEVERITY_STYLES[
-											screeningResult.inconsistencySeverity
-										] ??
-										"bg-slate-100 text-slate-700 ring-slate-200"
-									}
-								>
-									Severity:{" "}
-									{screeningResult.inconsistencySeverity}
-								</Badge>
-							) : null,
+							headerExtra:
+								screeningResult.inconsistencySeverity ? (
+									<Badge
+										className={
+											SEVERITY_STYLES[
+												screeningResult
+													.inconsistencySeverity
+											] ??
+											"bg-slate-100 text-slate-700 ring-slate-200"
+										}
+									>
+										Severity:{" "}
+										{screeningResult.inconsistencySeverity}
+									</Badge>
+								) : null,
 							render: () => (
 								<>
 									<div className="grid gap-4 sm:grid-cols-3">
 										<Stat
 											label="Review score"
 											value={
-												screeningResult.inconsistencyReview
+												screeningResult
+													.inconsistencyReview
 													?.score != null
 													? `${screeningResult.inconsistencyReview.score}`
 													: "—"
@@ -228,7 +239,8 @@ function JobApplicationDetailPage() {
 									<Detail
 										label="Review notes"
 										value={
-											screeningResult.inconsistencyReview?.review
+											screeningResult.inconsistencyReview
+												?.review
 										}
 									/>
 									<Detail
@@ -410,13 +422,11 @@ function JobApplicationDetailPage() {
 }
 
 function ScreeningPanel({ stages, activeStage, onSelectStage }) {
-	const active =
-		stages.find((s) => s.number === activeStage) ?? stages[0];
+	const active = stages.find((s) => s.number === activeStage) ?? stages[0];
 
 	return (
 		<Card>
 			<div className="grid gap-0 md:grid-cols-5">
-				{/* Left rail: 20% — stage picker */}
 				<nav
 					role="tablist"
 					aria-orientation="vertical"
@@ -426,12 +436,17 @@ function ScreeningPanel({ stages, activeStage, onSelectStage }) {
 						{stages.map((stage) => {
 							const isActive = stage.number === active.number;
 							return (
-								<li key={stage.number} className="shrink-0 md:shrink">
+								<li
+									key={stage.number}
+									className="shrink-0 md:shrink"
+								>
 									<button
 										type="button"
 										role="tab"
 										aria-selected={isActive}
-										onClick={() => onSelectStage(stage.number)}
+										onClick={() =>
+											onSelectStage(stage.number)
+										}
 										className={`w-full whitespace-nowrap rounded-md px-3 py-2 text-left text-sm transition md:whitespace-normal ${
 											isActive
 												? "bg-slate-950 text-white"
@@ -457,7 +472,6 @@ function ScreeningPanel({ stages, activeStage, onSelectStage }) {
 					</ul>
 				</nav>
 
-				{/* Right pane: 80% — active stage content */}
 				<div className="md:col-span-4">
 					<CardHeader>
 						<div className="flex items-start justify-between gap-3">

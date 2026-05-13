@@ -28,6 +28,7 @@ function JobApplicationDetailPage() {
 		skip: !applicationId,
 	});
 	const [resumeOpen, setResumeOpen] = useState(false);
+	const [activeStage, setActiveStage] = useState(1);
 
 	if (isLoading) {
 		return (
@@ -127,67 +128,75 @@ function JobApplicationDetailPage() {
 			</Card>
 
 			{screeningResult ? (
-				<>
-					<ScreeningGroup
-						number={1}
-						title="Resume Matching"
-						description="How the applicant's resume lines up with the job's required skills."
-					>
-						<div className="grid gap-4 sm:grid-cols-3">
-							<Stat
-								label="Match percentage"
-								value={
-									screeningResult.matchPercentage != null
-										? `${screeningResult.matchPercentage}%`
-										: "—"
-								}
-							/>
-							<TagList
-								label="Matched skills"
-								items={screeningResult.matchedSkills}
-								tone="positive"
-							/>
-							<TagList
-								label="Unmatched skills"
-								items={screeningResult.unmatchedSkills}
-								tone="negative"
-							/>
-						</div>
-						<Detail
-							label="AI narrative summary"
-							value={screeningResult.aiNarrativeSummary}
-						/>
-					</ScreeningGroup>
-
-					<ScreeningGroup
-						number={2}
-						title="Resume Analysis"
-						description="AI's structured read of the resume itself."
-					>
-						<ScoreBlock signal={screeningResult.resumeAnalysis} />
-					</ScreeningGroup>
-
-					<ScreeningGroup
-						number={3}
-						title="Project Consistency"
-						description="Whether the listed projects align with the claimed experience."
-					>
-						<ScoreBlock
-							signal={screeningResult.projectConsistency}
-						/>
-					</ScreeningGroup>
-
-					<ScreeningGroup
-						number={4}
-						title="Inconsistency Review"
-						description="Risk flags raised by comparing answers, skills, and resume evidence."
-						headerExtra={
-							screeningResult.inconsistencySeverity ? (
+				<ScreeningPanel
+					activeStage={activeStage}
+					onSelectStage={setActiveStage}
+					stages={[
+						{
+							number: 1,
+							title: "Resume Matching",
+							description:
+								"How the applicant's resume lines up with the job's required skills.",
+							render: () => (
+								<>
+									<div className="grid gap-4 sm:grid-cols-3">
+										<Stat
+											label="Match percentage"
+											value={
+												screeningResult.matchPercentage !=
+												null
+													? `${screeningResult.matchPercentage}%`
+													: "—"
+											}
+										/>
+										<TagList
+											label="Matched skills"
+											items={screeningResult.matchedSkills}
+											tone="positive"
+										/>
+										<TagList
+											label="Unmatched skills"
+											items={screeningResult.unmatchedSkills}
+											tone="negative"
+										/>
+									</div>
+									<Detail
+										label="AI narrative summary"
+										value={screeningResult.aiNarrativeSummary}
+									/>
+								</>
+							),
+						},
+						{
+							number: 2,
+							title: "Resume Analysis",
+							description:
+								"AI's structured read of the resume itself.",
+							render: () => (
+								<ScoreBlock signal={screeningResult.resumeAnalysis} />
+							),
+						},
+						{
+							number: 3,
+							title: "Project Consistency",
+							description:
+								"Whether the listed projects align with the claimed experience.",
+							render: () => (
+								<ScoreBlock
+									signal={screeningResult.projectConsistency}
+								/>
+							),
+						},
+						{
+							number: 4,
+							title: "Inconsistency Review",
+							description:
+								"Risk flags raised by comparing answers, skills, and resume evidence.",
+							headerExtra: screeningResult.inconsistencySeverity ? (
 								<Badge
 									className={
 										SEVERITY_STYLES[
-											screeningResult
-												.inconsistencySeverity
+											screeningResult.inconsistencySeverity
 										] ??
 										"bg-slate-100 text-slate-700 ring-slate-200"
 									}
@@ -195,36 +204,44 @@ function JobApplicationDetailPage() {
 									Severity:{" "}
 									{screeningResult.inconsistencySeverity}
 								</Badge>
-							) : null
-						}
-					>
-						<div className="grid gap-4 sm:grid-cols-3">
-							<Stat
-								label="Review score"
-								value={
-									screeningResult.inconsistencyReview
-										?.score != null
-										? `${screeningResult.inconsistencyReview.score}`
-										: "—"
-								}
-							/>
-						</div>
-						<Detail
-							label="Explanation"
-							value={
-								screeningResult.inconsistencyReview?.explanation
-							}
-						/>
-						<Detail
-							label="Review notes"
-							value={screeningResult.inconsistencyReview?.review}
-						/>
-						<Detail
-							label="Recommended action"
-							value={screeningResult.recommendedHumanReviewAction}
-						/>
-					</ScreeningGroup>
-				</>
+							) : null,
+							render: () => (
+								<>
+									<div className="grid gap-4 sm:grid-cols-3">
+										<Stat
+											label="Review score"
+											value={
+												screeningResult.inconsistencyReview
+													?.score != null
+													? `${screeningResult.inconsistencyReview.score}`
+													: "—"
+											}
+										/>
+									</div>
+									<Detail
+										label="Explanation"
+										value={
+											screeningResult.inconsistencyReview
+												?.explanation
+										}
+									/>
+									<Detail
+										label="Review notes"
+										value={
+											screeningResult.inconsistencyReview?.review
+										}
+									/>
+									<Detail
+										label="Recommended action"
+										value={
+											screeningResult.recommendedHumanReviewAction
+										}
+									/>
+								</>
+							),
+						},
+					]}
+				/>
 			) : (
 				<Card>
 					<CardHeader>
@@ -392,26 +409,75 @@ function JobApplicationDetailPage() {
 	);
 }
 
-function ScreeningGroup({ number, title, description, headerExtra, children }) {
+function ScreeningPanel({ stages, activeStage, onSelectStage }) {
+	const active =
+		stages.find((s) => s.number === activeStage) ?? stages[0];
+
 	return (
 		<Card>
-			<CardHeader>
-				<div className="flex items-start justify-between gap-3">
-					<div>
-						<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-							Stage {number}
-						</p>
-						<h2 className="mt-1 text-sm font-semibold text-slate-900">
-							{title}
-						</h2>
-						<p className="mt-1 text-xs text-slate-500">
-							{description}
-						</p>
-					</div>
-					{headerExtra}
+			<div className="grid gap-0 md:grid-cols-5">
+				{/* Left rail: 20% — stage picker */}
+				<nav
+					role="tablist"
+					aria-orientation="vertical"
+					className="md:col-span-1 border-b border-slate-200 bg-slate-50/60 p-2 md:border-b-0 md:border-r"
+				>
+					<ul className="flex gap-1 overflow-x-auto md:flex-col md:gap-0.5 md:overflow-visible">
+						{stages.map((stage) => {
+							const isActive = stage.number === active.number;
+							return (
+								<li key={stage.number} className="shrink-0 md:shrink">
+									<button
+										type="button"
+										role="tab"
+										aria-selected={isActive}
+										onClick={() => onSelectStage(stage.number)}
+										className={`w-full whitespace-nowrap rounded-md px-3 py-2 text-left text-sm transition md:whitespace-normal ${
+											isActive
+												? "bg-slate-950 text-white"
+												: "text-slate-700 hover:bg-slate-100"
+										}`}
+									>
+										<span
+											className={`block text-[10px] font-semibold uppercase tracking-wide ${
+												isActive
+													? "text-white/70"
+													: "text-slate-500"
+											}`}
+										>
+											Stage {stage.number}
+										</span>
+										<span className="block text-sm font-medium">
+											{stage.title}
+										</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				</nav>
+
+				{/* Right pane: 80% — active stage content */}
+				<div className="md:col-span-4">
+					<CardHeader>
+						<div className="flex items-start justify-between gap-3">
+							<div>
+								<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+									Stage {active.number}
+								</p>
+								<h2 className="mt-1 text-sm font-semibold text-slate-900">
+									{active.title}
+								</h2>
+								<p className="mt-1 text-xs text-slate-500">
+									{active.description}
+								</p>
+							</div>
+							{active.headerExtra}
+						</div>
+					</CardHeader>
+					<CardBody className="space-y-4">{active.render()}</CardBody>
 				</div>
-			</CardHeader>
-			<CardBody className="space-y-4">{children}</CardBody>
+			</div>
 		</Card>
 	);
 }

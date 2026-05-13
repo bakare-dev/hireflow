@@ -53,11 +53,17 @@ export const applicationsApi = baseApi.injectEndpoints({
 			],
 		}),
 		getJobApplications: builder.query({
-			async queryFn({ jobId, page = 0, size = 10 } = {}) {
+			async queryFn({ jobId, page = 0, size = 10, recommendation } = {}) {
 				try {
 					const response = await apiHandler.get(
 						`/applications/jobs/${jobId}`,
-						{ params: { page, size } },
+						{
+							params: {
+								page,
+								size,
+								recommendation: recommendation || undefined,
+							},
+						},
 					);
 					return { data: response };
 				} catch (err) {
@@ -69,6 +75,39 @@ export const applicationsApi = baseApi.injectEndpoints({
 				"Applications",
 			],
 		}),
+		updateApplicationStage: builder.mutation({
+			async queryFn({ id, targetStage, reason }) {
+				try {
+					const response = await apiHandler.patch(
+						`/applications/${id}/stage`,
+						{ payload: { targetStage, reason } },
+					);
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			invalidatesTags: (result, error, arg) => [
+				{ type: "Applications", id: arg?.id },
+				"Applications",
+			],
+		}),
+		bulkUpdateApplicationStages: builder.mutation({
+			async queryFn({ applicationIds, targetStage, reason }) {
+				try {
+					const response = await apiHandler.patch(
+						"/applications/stage/bulk",
+						{
+							payload: { applicationIds, targetStage, reason },
+						},
+					);
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			invalidatesTags: ["Applications"],
+		}),
 	}),
 });
 
@@ -77,4 +116,6 @@ export const {
 	useGetMyApplicationsQuery,
 	useGetMyApplicationQuery,
 	useGetJobApplicationsQuery,
+	useUpdateApplicationStageMutation,
+	useBulkUpdateApplicationStagesMutation,
 } = applicationsApi;

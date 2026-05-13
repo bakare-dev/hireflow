@@ -77,3 +77,33 @@ export const API_OFFER_STAGES = Object.freeze(["OFFER", "HIRED"]);
 export function isTerminalStage(stage) {
 	return TERMINAL_STAGES.includes(stage);
 }
+
+export const STAGE_TARGET_OPTIONS = Object.freeze([
+	{ value: "APPLIED", label: "Applied" },
+	{ value: "SCREENING", label: "Screening" },
+	{ value: "INTERVIEW_SCHEDULED", label: "Interview Scheduled" },
+	{ value: "OFFER_SENT", label: "Offer Sent" },
+	{ value: "HIRED", label: "Hired" },
+	{ value: "REJECTED", label: "Rejected" },
+]);
+
+export const SCREENING_RECOMMENDATIONS = Object.freeze({
+	PENDING: "PENDING",
+	AUTO_PASS: "AUTO_PASS",
+	MANUAL_REVIEW: "MANUAL_REVIEW",
+	AUTO_REJECT: "AUTO_REJECT",
+});
+
+export const SCREENING_RECOMMENDATION_LABELS = Object.freeze({
+	PENDING: "Pending",
+	AUTO_PASS: "Auto pass",
+	MANUAL_REVIEW: "Manual review",
+	AUTO_REJECT: "Auto reject",
+});
+
+export const SCREENING_RECOMMENDATION_BADGE_COLORS = Object.freeze({
+	PENDING: "bg-slate-100 text-slate-700 ring-slate-200",
+	AUTO_PASS: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+	MANUAL_REVIEW: "bg-amber-100 text-amber-800 ring-amber-200",
+	AUTO_REJECT: "bg-rose-100 text-rose-700 ring-rose-200",
+});

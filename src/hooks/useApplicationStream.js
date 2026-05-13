@@ -56,8 +56,6 @@ function useApplicationStream() {
 					return;
 				}
 				if (response.status === 401 || response.status === 403) {
-					// Auth problem — don't retry on our own; let the user
-					// re-sign-in and the next session will reopen the stream.
 					throw new FatalError(
 						`SSE auth failed (${response.status})`,
 					);

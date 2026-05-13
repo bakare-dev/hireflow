@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
@@ -6,10 +6,19 @@ import Card, { CardBody, CardHeader } from "../../components/common/Card";
 import EmptyState from "../../components/common/EmptyState";
 import Modal from "../../components/common/Modal";
 import PageHeader from "../../components/common/PageHeader";
+import Select from "../../components/common/Select";
 import RichTextViewer from "../../components/editor/RichTextViewer";
 import { ROUTES } from "../../constants/routes";
-import { STAGE_BADGE_COLORS, STAGE_LABELS } from "../../constants/stages";
-import { useGetMyApplicationQuery } from "../../api/applicationsApi";
+import {
+	STAGE_BADGE_COLORS,
+	STAGE_LABELS,
+	STAGE_TARGET_OPTIONS,
+} from "../../constants/stages";
+import {
+	useGetMyApplicationQuery,
+	useUpdateApplicationStageMutation,
+} from "../../api/applicationsApi";
+import useToast from "../../hooks/useToast";
 
 const SEVERITY_STYLES = {
 	HIGH: "bg-rose-100 text-rose-700 ring-rose-200",
@@ -27,8 +36,30 @@ function JobApplicationDetailPage() {
 	} = useGetMyApplicationQuery(applicationId ?? "", {
 		skip: !applicationId,
 	});
+	const toast = useToast();
 	const [resumeOpen, setResumeOpen] = useState(false);
 	const [activeStage, setActiveStage] = useState(1);
+	const [stageModalOpen, setStageModalOpen] = useState(false);
+	const [updateStage, { isLoading: isUpdatingStage }] =
+		useUpdateApplicationStageMutation();
+
+	async function handleStageSubmit({ targetStage, reason }) {
+		try {
+			await updateStage({
+				id: applicationId,
+				targetStage,
+				reason: reason?.trim() || undefined,
+			}).unwrap();
+			toast.success("Stage updated.");
+			setStageModalOpen(false);
+		} catch (err) {
+			toast.error(
+				err.data?.message ??
+					err.error ??
+					"Unable to update the stage.",
+			);
+		}
+	}
 
 	if (isLoading) {
 		return (
@@ -89,6 +120,12 @@ function JobApplicationDetailPage() {
 								← Back to applications
 							</Button>
 						</Link>
+						<Button
+							size="sm"
+							onClick={() => setStageModalOpen(true)}
+						>
+							Update stage
+						</Button>
 					</div>
 				}
 			/>
@@ -417,7 +454,104 @@ function JobApplicationDetailPage() {
 					)}
 				</CardBody>
 			</Card>
+
+			<UpdateStageModal
+				open={stageModalOpen}
+				currentStage={stage}
+				submitting={isUpdatingStage}
+				onClose={() => setStageModalOpen(false)}
+				onSubmit={handleStageSubmit}
+			/>
 		</div>
+	);
+}
+
+function UpdateStageModal({
+	open,
+	currentStage,
+	submitting,
+	onClose,
+	onSubmit,
+}) {
+	const [targetStage, setTargetStage] = useState("");
+	const [reason, setReason] = useState("");
+
+	useEffect(() => {
+		if (!open) {
+			setTargetStage("");
+			setReason("");
+		}
+	}, [open]);
+
+	function handleSubmit(event) {
+		event.preventDefault();
+		if (!targetStage) return;
+		onSubmit?.({ targetStage, reason });
+	}
+
+	return (
+		<Modal
+			open={open}
+			onClose={onClose}
+			title="Update application stage"
+			size="sm"
+			footer={
+				<>
+					<Button variant="secondary" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button
+						onClick={handleSubmit}
+						disabled={submitting || !targetStage}
+					>
+						{submitting ? "Updating…" : "Update stage"}
+					</Button>
+				</>
+			}
+		>
+			<form onSubmit={handleSubmit} className="space-y-3">
+				{currentStage ? (
+					<div className="flex items-center gap-2 text-sm text-slate-600">
+						<span>Current stage:</span>
+						<Badge
+							className={
+								STAGE_BADGE_COLORS[currentStage] ??
+								"bg-slate-100 text-slate-700 ring-slate-200"
+							}
+						>
+							{STAGE_LABELS[currentStage] ?? currentStage}
+						</Badge>
+					</div>
+				) : null}
+				<Select
+					label="Target stage"
+					value={targetStage}
+					onChange={(e) => setTargetStage(e.target.value)}
+					options={[
+						{ value: "", label: "Select a stage…" },
+						...STAGE_TARGET_OPTIONS.filter(
+							(opt) => opt.value !== currentStage,
+						),
+					]}
+				/>
+				<label className="block">
+					<span className="mb-1 block text-sm font-medium text-slate-800">
+						Reason (optional)
+					</span>
+					<textarea
+						value={reason}
+						onChange={(e) => setReason(e.target.value)}
+						rows={3}
+						maxLength={500}
+						placeholder="Captured on the application's stage history."
+						className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+					/>
+					<p className="mt-1 text-right text-xs text-slate-400">
+						{reason.length}/500
+					</p>
+				</label>
+			</form>
+		</Modal>
 	);
 }
 

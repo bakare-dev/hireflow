@@ -46,7 +46,15 @@ function SignIn() {
 			dispatch(setAuthenticatedUser(nextUser));
 			navigate(destination, { replace: true });
 		} catch (err) {
-			toast.error(err.data?.message ?? err.error ?? "Sign in failed.");
+			const message = err.data?.message ?? err.error ?? "Sign in failed.";
+			if (/verify your email/i.test(message)) {
+				toast.success(message);
+				navigate(ROUTES.SIGN_UP, {
+					state: { step: "OTP", email, password },
+				});
+				return;
+			}
+			toast.error(message);
 		}
 	}
 

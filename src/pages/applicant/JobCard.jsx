@@ -18,10 +18,8 @@ function JobCard({
 	match = 0,
 	application,
 	selected,
-	saved,
 	onSelect,
 	onApply,
-	onToggleSave,
 }) {
 
 	return (
@@ -106,9 +104,6 @@ function JobCard({
 					className="flex-1"
 				>
 					{application ? "Applied" : "Easy apply"}
-				</Button>
-				<Button variant="secondary" size="sm" onClick={onToggleSave}>
-					{saved ? "Saved" : "Save"}
 				</Button>
 			</div>
 

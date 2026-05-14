@@ -208,9 +208,6 @@ function JobDetail() {
 								>
 									Apply now
 								</Button>
-								<Button variant="secondary" className="w-full">
-									Save job
-								</Button>
 								<p className="text-xs leading-5 text-slate-500">
 									Quick apply submits with the resume profile on
 									file.

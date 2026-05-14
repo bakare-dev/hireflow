@@ -30,7 +30,6 @@ function JobDiscovery() {
 	const [query, setQuery] = useState("");
 	const [jobType, setJobType] = useState("");
 	const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
-	const [savedIds, setSavedIds] = useState(() => new Set());
 	const [applyJob, setApplyJob] = useState(null);
 	const [selectedId, setSelectedId] = useState(null);
 
@@ -112,20 +111,6 @@ function JobDiscovery() {
 		? applicationByJobId.get(applyJob.id) ?? null
 		: null;
 
-	function toggleSave(jobId) {
-		setSavedIds((current) => {
-			const next = new Set(current);
-
-			if (next.has(jobId)) {
-				next.delete(jobId);
-			} else {
-				next.add(jobId);
-			}
-
-			return next;
-		});
-	}
-
 	return (
 		<div className="space-y-6">
 			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -189,10 +174,8 @@ function JobDiscovery() {
 										match={matchByJobId.get(job.id)?.score ?? 0}
 										application={application}
 										selected={selectedJob?.id === job.id}
-										saved={savedIds.has(job.id)}
 										onSelect={() => setSelectedId(job.id)}
 										onApply={() => setApplyJob(job)}
-										onToggleSave={() => toggleSave(job.id)}
 									/>
 								);
 							})}
@@ -238,15 +221,6 @@ function JobDiscovery() {
 									</p>
 								</div>
 
-								<Button
-									variant="secondary"
-									size="sm"
-									onClick={() => toggleSave(selectedJob.id)}
-								>
-									{savedIds.has(selectedJob.id)
-										? "Saved"
-										: "Save"}
-								</Button>
 							</div>
 
 							<div className="mt-5 grid gap-3 sm:grid-cols-2">

@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 .env
 
+HireFlow_PRD_v3.pdf
+PROJECT.md
+API_DOCUMENTATION.md
+SSE_INTEGRATION.md

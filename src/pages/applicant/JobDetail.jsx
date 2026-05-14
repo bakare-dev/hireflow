@@ -99,15 +99,6 @@ function JobDetail() {
 							<Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">
 								Easy Apply
 							</Badge>
-							{job.companyId ? (
-								<Link
-									to={ROUTES.APPLICANT_COMPANY_PROFILE(job.companyId)}
-								>
-									<Badge className="bg-blue-50 text-blue-700 ring-blue-200">
-										View company profile
-									</Badge>
-								</Link>
-							) : null}
 						</div>
 					</div>
 

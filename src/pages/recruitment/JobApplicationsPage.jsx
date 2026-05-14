@@ -23,6 +23,7 @@ import { useGetJobQuery } from "../../api/jobsApi";
 import useToast from "../../hooks/useToast";
 
 const PAGE_SIZE = 10;
+const FILTERED_PAGE_SIZE = 200;
 
 const RECOMMENDATION_OPTIONS = [
 	{ value: "", label: "All recommendations" },
@@ -32,14 +33,28 @@ const RECOMMENDATION_OPTIONS = [
 	{ value: "AUTO_REJECT", label: "Auto reject" },
 ];
 
+const STAGE_FILTER_OPTIONS = [
+	{ value: "", label: "All stages" },
+	{ value: "APPLIED", label: "Applied" },
+	{ value: "SCREENING", label: "Screening" },
+	{ value: "INTERVIEW_SCHEDULED", label: "Interview scheduled" },
+	{ value: "OFFER_SENT", label: "Offer sent" },
+	{ value: "HIRED", label: "Hired" },
+	{ value: "REJECTED", label: "Rejected" },
+];
+
 function JobApplicationsPage() {
 	const toast = useToast();
 	const { id } = useParams();
 	const jobId = id ?? "";
 	const [page, setPage] = useState(0);
 	const [recommendation, setRecommendation] = useState("");
+	const [stage, setStage] = useState("");
 	const [selected, setSelected] = useState(() => new Set());
 	const [bulkOpen, setBulkOpen] = useState(false);
+
+	const stageFilterActive = stage !== "";
+	const requestedSize = stageFilterActive ? FILTERED_PAGE_SIZE : PAGE_SIZE;
 
 	const { data: job } = useGetJobQuery(jobId, { skip: !jobId });
 	const {
@@ -49,20 +64,30 @@ function JobApplicationsPage() {
 		isError,
 		error,
 	} = useGetJobApplicationsQuery(
-		{ jobId, page, size: PAGE_SIZE, recommendation },
+		{
+			jobId,
+			page: stageFilterActive ? 0 : page,
+			size: requestedSize,
+			recommendation,
+		},
 		{ skip: !jobId },
 	);
 	const [bulkUpdate, { isLoading: isBulkUpdating }] =
 		useBulkUpdateApplicationStagesMutation();
 
-	const applications = useMemo(() => response?.content ?? [], [response]);
+	const rawApplications = useMemo(() => response?.content ?? [], [response]);
 	const pageable = response?.pageable;
 	const totalPages = pageable?.totalPages ?? 1;
-	const totalElements = pageable?.totalElements ?? applications.length;
+	const totalElements = pageable?.totalElements ?? rawApplications.length;
+
+	const applications = useMemo(() => {
+		if (!stageFilterActive) return rawApplications;
+		return rawApplications.filter((app) => app.stage === stage);
+	}, [rawApplications, stage, stageFilterActive]);
 
 	useEffect(() => {
 		setPage(0);
-	}, [recommendation]);
+	}, [recommendation, stage]);
 
 	const pageIds = useMemo(
 		() => applications.map((a) => a.id),
@@ -157,6 +182,17 @@ function JobApplicationsPage() {
 						onChange={(e) => setRecommendation(e.target.value)}
 						options={RECOMMENDATION_OPTIONS}
 					/>
+					<Select
+						label="Stage"
+						value={stage}
+						onChange={(e) => setStage(e.target.value)}
+						options={STAGE_FILTER_OPTIONS}
+						hint={
+							stageFilterActive
+								? `Filtering the first ${FILTERED_PAGE_SIZE} applications client-side — the backend doesn't yet support a stage filter.`
+								: undefined
+						}
+					/>
 				</CardBody>
 			</Card>
 
@@ -165,9 +201,7 @@ function JobApplicationsPage() {
 					<div>
 						<span className="font-semibold">{selected.size}</span>{" "}
 						selected{" "}
-						<span className="text-slate-400">
-							across this job
-						</span>
+						<span className="text-slate-400">across this job</span>
 					</div>
 					<div className="flex items-center gap-2">
 						<Button
@@ -217,7 +251,8 @@ function JobApplicationsPage() {
 											ref={(el) => {
 												if (el) {
 													el.indeterminate =
-														!allPageSelected && somePageSelected;
+														!allPageSelected &&
+														somePageSelected;
 												}
 											}}
 											onChange={togglePage}
@@ -233,8 +268,10 @@ function JobApplicationsPage() {
 							</thead>
 							<tbody>
 								{applications.map((app) => {
-									const rec = app.screeningResult?.recommendation;
-									const match = app.screeningResult?.matchPercentage;
+									const rec =
+										app.screeningResult?.recommendation;
+									const match =
+										app.screeningResult?.matchPercentage;
 									return (
 										<tr
 											key={app.id}
@@ -244,8 +281,12 @@ function JobApplicationsPage() {
 												<input
 													type="checkbox"
 													aria-label={`Select ${app.applicantName ?? "applicant"}`}
-													checked={selected.has(app.id)}
-													onChange={() => toggleRow(app.id)}
+													checked={selected.has(
+														app.id,
+													)}
+													onChange={() =>
+														toggleRow(app.id)
+													}
 												/>
 											</Td>
 											<Td>
@@ -259,11 +300,14 @@ function JobApplicationsPage() {
 											<Td>
 												<Badge
 													className={
-														STAGE_BADGE_COLORS[app.stage] ??
+														STAGE_BADGE_COLORS[
+															app.stage
+														] ??
 														"bg-slate-100 text-slate-700 ring-slate-200"
 													}
 												>
-													{STAGE_LABELS[app.stage] ?? app.stage}
+													{STAGE_LABELS[app.stage] ??
+														app.stage}
 												</Badge>
 											</Td>
 											<Td>
@@ -276,15 +320,18 @@ function JobApplicationsPage() {
 															"bg-slate-100 text-slate-700 ring-slate-200"
 														}
 													>
-														{SCREENING_RECOMMENDATION_LABELS[rec] ??
-															rec}
+														{SCREENING_RECOMMENDATION_LABELS[
+															rec
+														] ?? rec}
 													</Badge>
 												) : (
 													"—"
 												)}
 											</Td>
 											<Td>
-												{match != null ? `${match}%` : "—"}
+												{match != null
+													? `${match}%`
+													: "—"}
 											</Td>
 											<Td>
 												{app.createdAt
@@ -300,7 +347,10 @@ function JobApplicationsPage() {
 														app.id,
 													)}
 												>
-													<Button size="sm" variant="secondary">
+													<Button
+														size="sm"
+														variant="secondary"
+													>
 														View
 													</Button>
 												</Link>
@@ -332,7 +382,9 @@ function JobApplicationsPage() {
 								size="sm"
 								variant="secondary"
 								disabled={page === 0 || isFetching}
-								onClick={() => setPage((p) => Math.max(0, p - 1))}
+								onClick={() =>
+									setPage((p) => Math.max(0, p - 1))
+								}
 							>
 								Previous
 							</Button>
@@ -340,7 +392,8 @@ function JobApplicationsPage() {
 								size="sm"
 								variant="secondary"
 								disabled={
-									page >= Math.max(totalPages - 1, 0) || isFetching
+									page >= Math.max(totalPages - 1, 0) ||
+									isFetching
 								}
 								onClick={() => setPage((p) => p + 1)}
 							>
@@ -351,27 +404,21 @@ function JobApplicationsPage() {
 				) : null}
 			</Card>
 
-			<BulkUpdateStageModal
-				open={bulkOpen}
-				count={selected.size}
-				submitting={isBulkUpdating}
-				onClose={() => setBulkOpen(false)}
-				onSubmit={handleBulkSubmit}
-			/>
+			{bulkOpen ? (
+				<BulkUpdateStageModal
+					count={selected.size}
+					submitting={isBulkUpdating}
+					onClose={() => setBulkOpen(false)}
+					onSubmit={handleBulkSubmit}
+				/>
+			) : null}
 		</div>
 	);
 }
 
-function BulkUpdateStageModal({ open, count, submitting, onClose, onSubmit }) {
+function BulkUpdateStageModal({ count, submitting, onClose, onSubmit }) {
 	const [targetStage, setTargetStage] = useState("");
 	const [reason, setReason] = useState("");
-
-	useEffect(() => {
-		if (!open) {
-			setTargetStage("");
-			setReason("");
-		}
-	}, [open]);
 
 	function handleSubmit(event) {
 		event.preventDefault();
@@ -381,7 +428,7 @@ function BulkUpdateStageModal({ open, count, submitting, onClose, onSubmit }) {
 
 	return (
 		<Modal
-			open={open}
+			open
 			onClose={onClose}
 			title={`Update ${count} application${count === 1 ? "" : "s"}`}
 			size="sm"
@@ -401,9 +448,10 @@ function BulkUpdateStageModal({ open, count, submitting, onClose, onSubmit }) {
 		>
 			<form onSubmit={handleSubmit} className="space-y-3">
 				<p className="text-sm text-slate-600">
-					Every selected application will be moved to the chosen stage.
-					Per-application errors (other company, invalid transition)
-					are reported as failures but don't stop the batch.
+					Every selected application will be moved to the chosen
+					stage. Per-application errors (other company, invalid
+					transition) are reported as failures but don't stop the
+					batch.
 				</p>
 				<Select
 					label="Target stage"
@@ -437,9 +485,7 @@ function BulkUpdateStageModal({ open, count, submitting, onClose, onSubmit }) {
 
 function Th({ children, className }) {
 	return (
-		<th
-			className={`px-4 py-3 text-left font-semibold ${className ?? ""}`}
-		>
+		<th className={`px-4 py-3 text-left font-semibold ${className ?? ""}`}>
 			{children}
 		</th>
 	);

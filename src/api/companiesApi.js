@@ -7,13 +7,15 @@ export const companiesApi = baseApi.injectEndpoints({
 		createCompany: builder.mutation({
 			async queryFn(payload) {
 				try {
-					const response = await apiHandler.post("/companies", { payload });
+					const response = await apiHandler.post("/companies", {
+						payload,
+					});
 					return { data: response };
 				} catch (err) {
 					return { error: toRtkError(err) };
 				}
 			},
-			invalidatesTags: ["Companies"],
+			invalidatesTags: ["Companies", "Auth"],
 		}),
 		getMyCompany: builder.query({
 			async queryFn() {

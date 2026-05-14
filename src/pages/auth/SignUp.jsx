@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import {
+	useLoginMutation,
 	useRegisterMutation,
 	useVerifyOtpMutation,
 } from "../../api/authApi";
@@ -38,21 +39,37 @@ function SignUp() {
 	const [params] = useSearchParams();
 	const [register, { isLoading: registering }] = useRegisterMutation();
 	const [verifyOtp, { isLoading: verifying }] = useVerifyOtpMutation();
+	const [login, { isLoading: resending }] = useLoginMutation();
+
+	async function handleResend() {
+		setOtp("");
+		setOtpError(null);
+		try {
+			await login({
+				email: formData.email,
+				password: formData.password,
+			}).unwrap();
+			toast.success("Account already verified — please sign in.");
+			navigate(ROUTES.SIGN_IN);
+		} catch (err) {
+			toast.success(
+				err.data?.message ?? "A new OTP has been sent to your email.",
+			);
+		}
+	}
 
 	const presetRole = ROLE_FROM_PARAM[params.get("as")?.toLowerCase()] ?? null;
 
+	const [lastPresetRole, setLastPresetRole] = useState(presetRole);
 	const [step, setStep] = useState(presetRole ? STEP.FORM : STEP.ROLE);
 	const [role, setRole] = useState(presetRole);
 	const [formData, setFormData] = useState(null);
 
-	useEffect(() => {
-		if (presetRole && role !== presetRole) {
-			setRole(presetRole);
-			setStep((current) =>
-				current === STEP.ROLE ? STEP.FORM : current,
-			);
-		}
-	}, [presetRole, role]);
+	if (presetRole && presetRole !== lastPresetRole) {
+		setLastPresetRole(presetRole);
+		setRole(presetRole);
+		if (step === STEP.ROLE) setStep(STEP.FORM);
+	}
 
 	const [otp, setOtp] = useState("");
 	const [otpError, setOtpError] = useState(null);
@@ -86,11 +103,10 @@ function SignUp() {
 		e.preventDefault();
 		setOtpError(null);
 		try {
-			const response = await verifyOtp({
+			await verifyOtp({
 				email: formData.email,
 				otp,
 			}).unwrap();
-			toast.success(response?.message ?? "Email verified successfully.");
 			toast.success("Account created. Please sign in to continue.");
 			navigate(ROUTES.SIGN_IN);
 		} catch (err) {
@@ -180,11 +196,7 @@ function SignUp() {
 			<form onSubmit={handleVerify} className="space-y-6">
 				<OtpInput value={otp} onChange={setOtp} error={otpError} />
 
-				<Button
-					type="submit"
-					className="w-full"
-					disabled={verifying}
-				>
+				<Button type="submit" className="w-full" disabled={verifying}>
 					{verifying ? "Verifying…" : "Verify and continue"}
 				</Button>
 			</form>
@@ -199,28 +211,11 @@ function SignUp() {
 				</button>
 				<button
 					type="button"
-					onClick={async () => {
-						setOtp("");
-						setOtpError(null);
-						try {
-							const response = await register(
-								toRegistrationPayload(formData, role),
-							).unwrap();
-							toast.success(
-								response?.message ??
-									"We sent a fresh OTP to your email.",
-							);
-						} catch (err) {
-							toast.error(
-								err.data?.message ??
-									err.error ??
-									"Unable to resend OTP.",
-							);
-						}
-					}}
-					className="font-medium text-slate-900 hover:underline"
+					onClick={handleResend}
+					disabled={resending}
+					className="font-medium text-slate-900 hover:underline disabled:opacity-60"
 				>
-					Resend code
+					{resending ? "Sending…" : "Resend code"}
 				</button>
 			</div>
 		</div>

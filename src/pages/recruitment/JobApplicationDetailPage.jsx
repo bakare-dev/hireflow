@@ -21,6 +21,7 @@ import {
 } from "../../api/applicationsApi";
 import {
 	useCancelInterviewMutation,
+	useGetInterviewQuery,
 	useRescheduleInterviewMutation,
 	useScheduleInterviewMutation,
 } from "../../api/interviewsApi";
@@ -69,10 +70,7 @@ function JobApplicationDetailPage() {
 	const [submitScorecard, { isLoading: isSubmittingScorecard }] =
 		useSubmitScorecardMutation();
 
-	// Derive the interview slot from the application up-front so we can keep
-	// hooks below in a stable order (Rules of Hooks). The application response
-	// may use either `interviewSlot` (single) or `interviewSlots[]`.
-	const interviewSlot = useMemo(() => {
+	const inlinedInterviewSlot = useMemo(() => {
 		if (!application) return null;
 		return (
 			application.interviewSlot ??
@@ -85,11 +83,18 @@ function JobApplicationDetailPage() {
 			null
 		);
 	}, [application]);
+
+	const shouldFetchInterview =
+		!!applicationId &&
+		!inlinedInterviewSlot &&
+		application?.stage === "INTERVIEW_SCHEDULED";
+	const { data: fetchedInterview } = useGetInterviewQuery(
+		applicationId ?? "",
+		{ skip: !shouldFetchInterview },
+	);
+	const interviewSlot = inlinedInterviewSlot ?? fetchedInterview ?? null;
 	const slotId = interviewSlot?.id ?? null;
 
-	// Inlined scorecards on the application are preferred. Fall back to the
-	// dedicated GET endpoint when we have a slot id but the response didn't
-	// inline them.
 	const inlinedScorecards = useMemo(() => {
 		if (!application) return null;
 		if (Array.isArray(application.scorecards)) {
@@ -98,7 +103,6 @@ function JobApplicationDetailPage() {
 		if (Array.isArray(interviewSlot?.scorecards)) {
 			return interviewSlot.scorecards;
 		}
-		// Legacy single-scorecard shape — wrap it.
 		const legacy = application.scorecard ?? interviewSlot?.scorecard;
 		if (legacy) return [legacy];
 		return null;
@@ -794,8 +798,9 @@ function UpdateStageModal({
 				</p>
 				{blocksOfferWithoutScorecard ? (
 					<div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-						Moving to <span className="font-medium">Offer Sent</span>{" "}
-						from Interview Scheduled requires at least one submitted
+						Moving to{" "}
+						<span className="font-medium">Offer Sent</span> from
+						Interview Scheduled requires at least one submitted
 						scorecard. Ask a hiring manager to submit theirs first.
 					</div>
 				) : null}
@@ -1154,7 +1159,6 @@ function formatRange(startDate, endDate) {
 	return `${start} – ${end}`;
 }
 
-
 const INTERVIEW_SLOT_STATUS_STYLES = {
 	SCHEDULED: "bg-teal-100 text-teal-700 ring-teal-200",
 	COMPLETED: "bg-emerald-100 text-emerald-700 ring-emerald-200",
@@ -1318,8 +1322,8 @@ function ScorecardSection({
 						</h2>
 						<p className="mt-1 text-xs text-slate-500">
 							Each hiring manager submits one scorecard per
-							interview slot. Submitting marks the slot
-							completed; the application stage does not change.
+							interview slot. Submitting marks the slot completed;
+							the application stage does not change.
 						</p>
 					</div>
 					{canSubmit ? (
@@ -1382,7 +1386,9 @@ function ScorecardSummary({ scorecard }) {
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div>
 					<p className="text-sm font-semibold text-slate-900">
-						{submittedByEmail ?? interviewerEmail ?? "Hiring manager"}
+						{submittedByEmail ??
+							interviewerEmail ??
+							"Hiring manager"}
 					</p>
 					<p className="text-xs text-slate-500">
 						{[submittedByRole, templateName ?? templateNameSnapshot]
@@ -1461,10 +1467,26 @@ function InterviewModal({
 		initial?.interviewerEmail ?? "",
 	);
 	const [notes, setNotes] = useState(initial?.notes ?? "");
+	const [error, setError] = useState("");
+
+	const nowLocal = toLocalInput(new Date().toISOString());
 
 	function handleSubmit(event) {
 		event.preventDefault();
 		if (!startTime || !endTime || !timezone || !interviewerEmail) return;
+		const startDate = new Date(startTime);
+		const endDate = new Date(endTime);
+		const now = new Date();
+		now.setSeconds(0, 0);
+		if (startDate < now) {
+			setError("Start time cannot be in the past.");
+			return;
+		}
+		if (endDate <= startDate) {
+			setError("End time must be after the start time.");
+			return;
+		}
+		setError("");
 		onSubmit?.({
 			startTime: fromLocalInput(startTime),
 			endTime: fromLocalInput(endTime),
@@ -1474,8 +1496,20 @@ function InterviewModal({
 		});
 	}
 
+	const startDate = startTime ? new Date(startTime) : null;
+	const endDate = endTime ? new Date(endTime) : null;
+	const nowFloor = new Date();
+	nowFloor.setSeconds(0, 0);
+	const isStartPast = startDate && startDate < nowFloor;
+	const isEndBeforeStart = startDate && endDate && endDate <= startDate;
+
 	const canSubmit =
-		startTime && endTime && timezone && interviewerEmail.trim();
+		startTime &&
+		endTime &&
+		timezone &&
+		interviewerEmail.trim() &&
+		!isStartPast &&
+		!isEndBeforeStart;
 
 	return (
 		<Modal
@@ -1506,10 +1540,19 @@ function InterviewModal({
 						<input
 							type="datetime-local"
 							value={startTime}
-							onChange={(e) => setStartTime(e.target.value)}
+							min={nowLocal}
+							onChange={(e) => {
+								setStartTime(e.target.value);
+								setError("");
+							}}
 							required
 							className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
 						/>
+						{isStartPast ? (
+							<p className="mt-1 text-xs text-red-600">
+								Start time cannot be in the past.
+							</p>
+						) : null}
 					</label>
 					<label className="block">
 						<span className="mb-1 block text-sm font-medium text-slate-800">
@@ -1518,12 +1561,22 @@ function InterviewModal({
 						<input
 							type="datetime-local"
 							value={endTime}
-							onChange={(e) => setEndTime(e.target.value)}
+							min={startTime || nowLocal}
+							onChange={(e) => {
+								setEndTime(e.target.value);
+								setError("");
+							}}
 							required
 							className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
 						/>
+						{isEndBeforeStart ? (
+							<p className="mt-1 text-xs text-red-600">
+								End time must be after the start time.
+							</p>
+						) : null}
 					</label>
 				</div>
+				{error ? <p className="text-sm text-red-600">{error}</p> : null}
 				<label className="block">
 					<span className="mb-1 block text-sm font-medium text-slate-800">
 						Timezone
@@ -1625,7 +1678,6 @@ function CancelInterviewModal({ submitting, onClose, onSubmit }) {
 		</Modal>
 	);
 }
-
 
 function SubmitScorecardModal({ slot, submitting, onClose, onSubmit }) {
 	const {
@@ -1830,7 +1882,6 @@ function SubmitScorecardModal({ slot, submitting, onClose, onSubmit }) {
 		</Modal>
 	);
 }
-
 
 function formatDateTime(iso, timezone) {
 	if (!iso) return "—";

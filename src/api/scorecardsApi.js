@@ -17,6 +17,39 @@ export const scorecardsApi = baseApi.injectEndpoints({
 			},
 			providesTags: ["ScorecardTemplates"],
 		}),
+		getScorecardTemplate: builder.query({
+			async queryFn(id) {
+				try {
+					const response = await apiHandler.get(
+						`/admin/scorecard-templates/${id}`,
+					);
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			providesTags: (result, error, id) => [
+				{ type: "ScorecardTemplates", id },
+				"ScorecardTemplates",
+			],
+		}),
+		updateScorecardTemplate: builder.mutation({
+			async queryFn({ id, ...payload }) {
+				try {
+					const response = await apiHandler.put(
+						`/admin/scorecard-templates/${id}`,
+						{ payload },
+					);
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			invalidatesTags: (result, error, arg) => [
+				"ScorecardTemplates",
+				{ type: "ScorecardTemplates", id: arg?.id },
+			],
+		}),
 		createScorecardTemplate: builder.mutation({
 			async queryFn(payload) {
 				try {
@@ -42,9 +75,6 @@ export const scorecardsApi = baseApi.injectEndpoints({
 			},
 			invalidatesTags: ["ScorecardTemplates"],
 		}),
-		// GET /api/v1/interviews/{interviewSlotId}/scorecard → list (one per HR).
-		// Response may be a bare array or a `{ data: [...] }` envelope —
-		// callers should normalize.
 		getScorecardsForSlot: builder.query({
 			async queryFn(interviewSlotId) {
 				try {
@@ -61,10 +91,6 @@ export const scorecardsApi = baseApi.injectEndpoints({
 				"Scorecards",
 			],
 		}),
-		// POST /api/v1/interviews/{interviewSlotId}/scorecard
-		// HMANAGER-only. Uniqueness is (interview_slot_id, submitted_by_id) —
-		// each HR may submit once. First submission flips the slot to
-		// COMPLETED; subsequent submissions are still accepted.
 		submitScorecard: builder.mutation({
 			async queryFn({ interviewSlotId, applicationId, ...payload }) {
 				try {
@@ -94,7 +120,9 @@ export const scorecardsApi = baseApi.injectEndpoints({
 
 export const {
 	useListScorecardTemplatesQuery,
+	useGetScorecardTemplateQuery,
 	useCreateScorecardTemplateMutation,
+	useUpdateScorecardTemplateMutation,
 	useDeleteScorecardTemplateMutation,
 	useGetScorecardsForSlotQuery,
 	useSubmitScorecardMutation,

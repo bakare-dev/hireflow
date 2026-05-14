@@ -11,6 +11,7 @@ import {
 	useCreateScorecardTemplateMutation,
 	useDeleteScorecardTemplateMutation,
 	useListScorecardTemplatesQuery,
+	useUpdateScorecardTemplateMutation,
 } from "../../api/scorecardsApi";
 import useToast from "../../hooks/useToast";
 
@@ -24,15 +25,20 @@ function ScorecardTemplatesPage() {
 	} = useListScorecardTemplatesQuery();
 	const [createTemplate, { isLoading: isCreating }] =
 		useCreateScorecardTemplateMutation();
+	const [updateTemplate, { isLoading: isUpdating }] =
+		useUpdateScorecardTemplateMutation();
 	const [deleteTemplate, { isLoading: isDeleting }] =
 		useDeleteScorecardTemplateMutation();
 
 	const templates = useMemo(() => {
-		const list = Array.isArray(response) ? response : (response?.content ?? []);
+		const list = Array.isArray(response)
+			? response
+			: (response?.content ?? []);
 		return list;
 	}, [response]);
 
 	const [createOpen, setCreateOpen] = useState(false);
+	const [editTarget, setEditTarget] = useState(null);
 	const [pendingDelete, setPendingDelete] = useState(null);
 
 	async function handleCreate(payload) {
@@ -42,9 +48,20 @@ function ScorecardTemplatesPage() {
 			setCreateOpen(false);
 		} catch (err) {
 			toast.error(
-				err.data?.message ??
-					err.error ??
-					"Unable to create template.",
+				err.data?.message ?? err.error ?? "Unable to create template.",
+			);
+		}
+	}
+
+	async function handleUpdate(payload) {
+		if (!editTarget) return;
+		try {
+			await updateTemplate({ id: editTarget.id, ...payload }).unwrap();
+			toast.success("Template updated.");
+			setEditTarget(null);
+		} catch (err) {
+			toast.error(
+				err.data?.message ?? err.error ?? "Unable to update template.",
 			);
 		}
 	}
@@ -130,16 +147,29 @@ function ScorecardTemplatesPage() {
 												</p>
 											) : null}
 										</div>
-										{t.isActive !== false ? (
-											<Button
-												size="sm"
-												variant="danger"
-												disabled={isDeleting}
-												onClick={() => setPendingDelete(t)}
-											>
-												Deactivate
-											</Button>
-										) : null}
+										<div className="flex flex-wrap items-center gap-2">
+											{t.isActive !== false ? (
+												<Button
+													size="sm"
+													variant="secondary"
+													onClick={() => setEditTarget(t)}
+												>
+													Edit
+												</Button>
+											) : null}
+											{t.isActive !== false ? (
+												<Button
+													size="sm"
+													variant="danger"
+													disabled={isDeleting}
+													onClick={() =>
+														setPendingDelete(t)
+													}
+												>
+													Deactivate
+												</Button>
+											) : null}
+										</div>
 									</div>
 									{t.criteria?.length ? (
 										<ol className="mt-3 space-y-1.5">
@@ -163,7 +193,10 @@ function ScorecardTemplatesPage() {
 															</span>
 															{c.description ? (
 																<span className="ml-2 text-xs text-slate-500">
-																	— {c.description}
+																	—{" "}
+																	{
+																		c.description
+																	}
 																</span>
 															) : null}
 														</div>
@@ -191,10 +224,21 @@ function ScorecardTemplatesPage() {
 			</Card>
 
 			{createOpen ? (
-				<CreateTemplateModal
+				<TemplateModal
+					mode="create"
 					submitting={isCreating}
 					onClose={() => setCreateOpen(false)}
 					onSubmit={handleCreate}
+				/>
+			) : null}
+
+			{editTarget ? (
+				<TemplateModal
+					mode="edit"
+					initial={editTarget}
+					submitting={isUpdating}
+					onClose={() => setEditTarget(null)}
+					onSubmit={handleUpdate}
 				/>
 			) : null}
 
@@ -218,13 +262,32 @@ function ScorecardTemplatesPage() {
 const CRITERIA_COUNT = 5;
 const MAX_SCORE_CEILING = 5;
 
-function CreateTemplateModal({ submitting, onClose, onSubmit }) {
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	// The backend enforces exactly 5 criteria with maxScore 1–5 per criterion.
-	const [criteria, setCriteria] = useState(() =>
-		Array.from({ length: CRITERIA_COUNT }, () => blankCriterion()),
-	);
+function TemplateModal({
+	mode = "create",
+	initial = null,
+	submitting,
+	onClose,
+	onSubmit,
+}) {
+	const isEdit = mode === "edit";
+	const [name, setName] = useState(initial?.name ?? "");
+	const [description, setDescription] = useState(initial?.description ?? "");
+	const [criteria, setCriteria] = useState(() => {
+		if (initial?.criteria?.length) {
+			const sorted = [...initial.criteria].sort(
+				(a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
+			);
+			const filled = sorted.slice(0, CRITERIA_COUNT).map((c) => ({
+				category: c.category ?? "",
+				name: c.name ?? "",
+				description: c.description ?? "",
+				maxScore: c.maxScore ?? 5,
+			}));
+			while (filled.length < CRITERIA_COUNT) filled.push(blankCriterion());
+			return filled;
+		}
+		return Array.from({ length: CRITERIA_COUNT }, () => blankCriterion());
+	});
 
 	function setCriterion(index, key, value) {
 		setCriteria((current) =>
@@ -248,9 +311,7 @@ function CreateTemplateModal({ submitting, onClose, onSubmit }) {
 			};
 		});
 		if (
-			cleanedCriteria.some(
-				(c) => !c.category || !c.name || !c.maxScore,
-			)
+			cleanedCriteria.some((c) => !c.category || !c.name || !c.maxScore)
 		) {
 			return;
 		}
@@ -275,7 +336,7 @@ function CreateTemplateModal({ submitting, onClose, onSubmit }) {
 		<Modal
 			open
 			onClose={onClose}
-			title="Create scorecard template"
+			title={isEdit ? "Edit scorecard template" : "Create scorecard template"}
 			size="lg"
 			footer={
 				<>
@@ -286,7 +347,11 @@ function CreateTemplateModal({ submitting, onClose, onSubmit }) {
 						onClick={handleSubmit}
 						disabled={submitting || !canSubmit}
 					>
-						{submitting ? "Saving…" : "Create template"}
+						{submitting
+							? "Saving…"
+							: isEdit
+								? "Save changes"
+								: "Create template"}
 					</Button>
 				</>
 			}
@@ -351,7 +416,11 @@ function CreateTemplateModal({ submitting, onClose, onSubmit }) {
 										label="Name"
 										value={c.name}
 										onChange={(e) =>
-											setCriterion(idx, "name", e.target.value)
+											setCriterion(
+												idx,
+												"name",
+												e.target.value,
+											)
 										}
 										required
 										placeholder="System Design"

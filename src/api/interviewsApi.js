@@ -4,7 +4,22 @@ import { baseApi } from "./baseApi";
 
 export const interviewsApi = baseApi.injectEndpoints({
 	endpoints: (builder) => ({
-	
+		getInterview: builder.query({
+			async queryFn(applicationId) {
+				try {
+					const response = await apiHandler.get(
+						`/applications/${applicationId}/interview`,
+					);
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			providesTags: (result, error, applicationId) => [
+				{ type: "Applications", id: applicationId },
+				"Applications",
+			],
+		}),
 		scheduleInterview: builder.mutation({
 			async queryFn({ applicationId, ...payload }) {
 				try {
@@ -60,6 +75,7 @@ export const interviewsApi = baseApi.injectEndpoints({
 });
 
 export const {
+	useGetInterviewQuery,
 	useScheduleInterviewMutation,
 	useRescheduleInterviewMutation,
 	useCancelInterviewMutation,

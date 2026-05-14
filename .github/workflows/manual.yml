@@ -1,0 +1,27 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Stop old container
+        run: docker rm -f hireflow || true
+
+      - name: Build frontend image
+        run: docker build -t hireflow ./frontend
+
+      - name: Start hireflow container
+        run: |
+          docker run -d \
+            --name hireflow \
+            -p 3000:80 \
+            frontend-app

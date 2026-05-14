@@ -17,6 +17,7 @@ import SignIn from "../pages/auth/SignIn";
 import SignUp from "../pages/auth/SignUp";
 import PasswordReset from "../pages/auth/PasswordReset";
 import AcceptInvite from "../pages/auth/AcceptInvite";
+import CompanySetup from "../pages/auth/CompanySetup";
 import JobDiscovery from "../pages/applicant/JobDiscovery";
 import JobDetail from "../pages/applicant/JobDetail";
 import MyApplications from "../pages/applicant/MyApplications";
@@ -66,6 +67,14 @@ function AppRoutes() {
 					element={<PasswordReset />}
 				/>
 				<Route path={ROUTES.ACCEPT_INVITE} element={<AcceptInvite />} />
+				<Route
+					path={ROUTES.COMPANY_SETUP}
+					element={
+						<RoleGuard allow={USER_ROLES.ADMIN}>
+							<CompanySetup />
+						</RoleGuard>
+					}
+				/>
 			</Route>
 
 			<Route

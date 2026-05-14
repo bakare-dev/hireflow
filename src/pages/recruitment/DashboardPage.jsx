@@ -1,190 +1,290 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
+import Badge from "../../components/common/Badge";
 import Card, { CardBody, CardHeader } from "../../components/common/Card";
+import EmptyState from "../../components/common/EmptyState";
 import PageHeader from "../../components/common/PageHeader";
-import StageBadge from "../../components/domain/StageBadge";
-import { selectAuthRole, selectAuthUser } from "../../store/slices/authSlice";
-import { selectApplications } from "../../store/slices/applicationsSlice";
-import { selectInterviewSlots } from "../../store/slices/interviewsSlice";
-import { selectJobs } from "../../store/slices/jobsSlice";
-import { formatDateTime } from "../../utils/date";
+import Select from "../../components/common/Select";
+import { STAGE_BADGE_COLORS, STAGE_LABELS } from "../../constants/stages";
+import { USER_ROLES } from "../../constants/roles";
+import { selectAuthRole } from "../../store/slices/authSlice";
 import {
-	kpiSnapshot,
-	orderedFunnel,
-	roleScopedApplications,
-	roleScopedJobs,
-} from "../../utils/recruitmentUtils";
+	useGetApplicationVolumeQuery,
+	useGetTimeToHireQuery,
+} from "../../api/adminApi";
+import { useGetCompanyJobsQuery } from "../../api/jobsApi";
+
+const STAGE_DISPLAY_ORDER = [
+	"APPLIED",
+	"SCREENING",
+	"INTERVIEW_SCHEDULED",
+	"INTERVIEW_COMPLETED",
+	"OFFER",
+	"OFFER_SENT",
+	"HIRED",
+	"REJECTED",
+];
 
 function DashboardPage() {
 	const role = useSelector(selectAuthRole);
-	const user = useSelector(selectAuthUser);
-	const jobs = useSelector(selectJobs);
-	const applications = useSelector(selectApplications);
-	const interviews = useSelector(selectInterviewSlots);
+	const isAdmin = role === USER_ROLES.ADMIN;
+	const [jobListingId, setJobListingId] = useState("");
 
-	const scopedJobs = useMemo(
-		() => roleScopedJobs(jobs, role, user),
-		[jobs, role, user],
+	const { data: jobsResponse } = useGetCompanyJobsQuery(
+		{ page: 0, size: 100 },
+		{ skip: !isAdmin },
 	);
-	const scopedApps = useMemo(
-		() => roleScopedApplications(applications, scopedJobs, role, user),
-		[applications, scopedJobs, role, user],
-	);
-	const scopedInterviewIds = new Set(scopedApps.map((app) => app.id));
-	const scopedInterviews = interviews.filter((slot) =>
-		scopedInterviewIds.has(slot.applicationId),
-	);
+	const jobs = useMemo(() => jobsResponse?.content ?? [], [jobsResponse]);
 
-	const kpi = kpiSnapshot({
-		jobs: scopedJobs,
-		applications: scopedApps,
-		interviews: scopedInterviews,
-	});
-	const funnelRows = orderedFunnel(kpi.funnel);
-	const upcoming = [...scopedInterviews]
-		.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
-		.slice(0, 5);
+	const {
+		data: volume,
+		isLoading: volumeLoading,
+		isError: volumeError,
+		error: volumeErr,
+	} = useGetApplicationVolumeQuery({ jobListingId }, { skip: !isAdmin });
+
+	const {
+		data: tth,
+		isLoading: tthLoading,
+		isError: tthError,
+		error: tthErr,
+	} = useGetTimeToHireQuery({ jobListingId }, { skip: !isAdmin });
+
+	if (!isAdmin) {
+		return (
+			<div className="space-y-6">
+				<PageHeader
+					eyebrow="Operations"
+					title="Recruitment Dashboard"
+					description="Pipeline metrics and hiring velocity for your company."
+				/>
+				<Card>
+					<CardBody>
+						<EmptyState
+							title="Admin-only metrics"
+							description="Application volume and time-to-hire are exposed only to company admins. Ask an admin in your company for access, or use Job listings to track your own queues."
+						/>
+					</CardBody>
+				</Card>
+			</div>
+		);
+	}
+
+	const funnelRows = orderedFunnel(volume?.volumeByStage);
+	const totalApps = volume?.total ?? 0;
 
 	return (
 		<div className="space-y-6">
 			<PageHeader
 				eyebrow="Operations"
 				title="Recruitment Dashboard"
-				description="Live operational snapshot of pipeline movement, interviews, offers, and AI signal quality."
+				description="Live snapshot of pipeline movement and time-to-hire for your company."
+				actions={
+					<div className="w-64">
+						<Select
+							label="Scope"
+							value={jobListingId}
+							onChange={(e) => setJobListingId(e.target.value)}
+							options={[
+								{ value: "", label: "All job listings" },
+								...jobs.map((j) => ({
+									value: j.id,
+									label: j.title,
+								})),
+							]}
+						/>
+					</div>
+				}
 			/>
 
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-				<KpiCard label="Open roles" value={kpi.openRoles} />
-				<KpiCard
-					label="Active candidates"
-					value={kpi.activeCandidates}
-				/>
-				<KpiCard
-					label="Interviews this week"
-					value={kpi.interviewsThisWeek}
-				/>
-				<KpiCard label="Offers pending" value={kpi.offersPending} />
-				<KpiCard
-					label="Avg time-to-hire"
-					value={`${kpi.avgTimeToHireDays} days`}
-				/>
-				<KpiCard
-					label="Hiring velocity"
-					value={`${kpi.hiringVelocity}%`}
-				/>
-			</div>
-
-			<div className="grid gap-5 xl:grid-cols-3">
-				<Card className="xl:col-span-1">
-					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">
-							Hiring Funnel
-						</h2>
-					</CardHeader>
-					<CardBody className="space-y-3">
-						{funnelRows.map((row) => (
-							<div key={row.stage}>
-								<div className="mb-1 flex items-center justify-between">
-									<StageBadge stage={row.stage} />
-									<span className="text-sm font-semibold text-slate-900">
-										{row.value}
-									</span>
-								</div>
-								<div className="h-2 rounded-full bg-slate-100">
-									<div
-										className="h-full rounded-full bg-slate-700"
-										style={{
-											width: `${Math.max(
-												8,
-												Math.min(
-													100,
-													kpi.activeCandidates
-														? (row.value /
-																kpi.activeCandidates) *
-																100
-														: 8,
-												),
-											)}%`,
-										}}
-									/>
-								</div>
-							</div>
-						))}
-					</CardBody>
-				</Card>
-
-				<Card className="xl:col-span-1">
-					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">
-							AI Insights Feed
-						</h2>
-					</CardHeader>
-					<CardBody className="space-y-3 text-sm text-slate-700">
-						<p>
-							Backend Engineer role has 16 strong matches in
-							screening queue.
-						</p>
-						<p>
-							Interview stage is creating most delays in current
-							pipeline cycle.
-						</p>
-						<p>
-							AI rejection rate increased for DevOps-related
-							applications.
-						</p>
-						<p>
-							Borderline candidates cluster around missing core
-							backend skills.
-						</p>
-					</CardBody>
-				</Card>
-
-				<Card className="xl:col-span-1">
-					<CardHeader>
-						<h2 className="text-sm font-semibold text-slate-900">
-							Upcoming Interviews
-						</h2>
-					</CardHeader>
-					<CardBody className="space-y-3">
-						{upcoming.length ? (
-							upcoming.map((slot) => (
-								<div
-									key={slot.id}
-									className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-								>
-									<p className="font-medium text-slate-900">
-										Interview: {slot.applicationId}
-									</p>
-									<p className="text-slate-600">
-										{formatDateTime(slot.scheduledAt)} ·{" "}
-										{slot.durationMinutes}m
-									</p>
-								</div>
-							))
-						) : (
-							<p className="text-sm text-slate-600">
-								No interviews scheduled.
+			{/* --- Application volume --------------------------------------- */}
+			<Card>
+				<CardHeader>
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<div>
+							<h2 className="text-sm font-semibold text-slate-900">
+								Application volume
+							</h2>
+							<p className="mt-1 text-xs text-slate-500">
+								Counts by stage{" "}
+								{jobListingId
+									? "for this listing"
+									: "across every listing"}{" "}
+								— refreshes on stage changes.
 							</p>
-						)}
-					</CardBody>
-				</Card>
-			</div>
+						</div>
+						<Badge className="bg-slate-100 text-slate-700 ring-slate-200">
+							{totalApps} total
+						</Badge>
+					</div>
+				</CardHeader>
+				<CardBody>
+					{volumeLoading ? (
+						<p className="text-sm text-slate-500">
+							Loading volume…
+						</p>
+					) : volumeError ? (
+						<EmptyState
+							title="Unable to load volume"
+							description={
+								volumeErr?.data?.message ??
+								"Please retry in a moment."
+							}
+						/>
+					) : funnelRows.length ? (
+						<div className="space-y-3">
+							{funnelRows.map((row) => {
+								const pct =
+									totalApps > 0
+										? (row.value / totalApps) * 100
+										: 0;
+								return (
+									<div key={row.stage}>
+										<div className="mb-1 flex items-center justify-between">
+											<Badge
+												className={
+													STAGE_BADGE_COLORS[
+														row.stage
+													] ??
+													"bg-slate-100 text-slate-700 ring-slate-200"
+												}
+											>
+												{STAGE_LABELS[row.stage] ??
+													row.stage}
+											</Badge>
+											<span className="text-sm font-semibold text-slate-900">
+												{row.value}{" "}
+												<span className="text-xs font-normal text-slate-500">
+													({pct.toFixed(0)}%)
+												</span>
+											</span>
+										</div>
+										<div className="h-2 rounded-full bg-slate-100">
+											<div
+												className="h-full rounded-full bg-slate-700"
+												style={{
+													width: `${Math.max(2, Math.min(100, pct))}%`,
+												}}
+											/>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						<EmptyState
+							title="No applications yet"
+							description={
+								jobListingId
+									? "No one has applied to this listing yet."
+									: "Once candidates apply, volume by stage shows here."
+							}
+						/>
+					)}
+				</CardBody>
+			</Card>
+
+			{/* --- Time to hire --------------------------------------------- */}
+			<Card>
+				<CardHeader>
+					<div>
+						<h2 className="text-sm font-semibold text-slate-900">
+							Time-to-hire
+						</h2>
+						<p className="mt-1 text-xs text-slate-500">
+							Hours between application and hire decision
+							{jobListingId ? " for this listing" : ""}. Built
+							from applications that reached <em>Hired</em>.
+						</p>
+					</div>
+				</CardHeader>
+				<CardBody>
+					{tthLoading ? (
+						<p className="text-sm text-slate-500">
+							Loading time-to-hire…
+						</p>
+					) : tthError ? (
+						<EmptyState
+							title="Unable to load time-to-hire"
+							description={
+								tthErr?.data?.message ??
+								"Please retry in a moment."
+							}
+						/>
+					) : tth && tth.sampleSize > 0 ? (
+						<div className="space-y-4">
+							<div className="grid gap-3 sm:grid-cols-3">
+								<Metric
+									label="Sample size"
+									value={tth.sampleSize}
+								/>
+								<Metric
+									label="Mean"
+									value={formatHours(tth.meanHours)}
+								/>
+								<Metric
+									label="Median"
+									value={formatHours(tth.medianHours)}
+								/>
+								<Metric
+									label="p95"
+									value={formatHours(tth.p95Hours)}
+								/>
+								<Metric
+									label="Fastest"
+									value={formatHours(tth.minHours)}
+								/>
+								<Metric
+									label="Slowest"
+									value={formatHours(tth.maxHours)}
+								/>
+							</div>
+						</div>
+					) : (
+						<EmptyState
+							title="Not enough hires yet"
+							description="Once a few applications reach the Hired stage, this card will populate."
+						/>
+					)}
+				</CardBody>
+			</Card>
 		</div>
 	);
 }
 
-function KpiCard({ label, value }) {
+function orderedFunnel(volumeByStage) {
+	if (!volumeByStage) return [];
+	const seen = new Set();
+	const rows = [];
+	for (const stage of STAGE_DISPLAY_ORDER) {
+		if (stage in volumeByStage) {
+			rows.push({ stage, value: volumeByStage[stage] ?? 0 });
+			seen.add(stage);
+		}
+	}
+	for (const [stage, value] of Object.entries(volumeByStage)) {
+		if (!seen.has(stage)) rows.push({ stage, value: value ?? 0 });
+	}
+	return rows;
+}
+
+function formatHours(hours) {
+	if (hours == null) return "—";
+	if (hours < 24) return `${hours}h`;
+	const days = Math.round(hours / 24);
+	return `${days}d`;
+}
+
+function Metric({ label, value }) {
 	return (
-		<Card>
-			<CardBody>
-				<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-					{label}
-				</p>
-				<p className="mt-1 text-2xl font-semibold text-slate-950">
-					{value}
-				</p>
-			</CardBody>
-		</Card>
+		<div>
+			<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+				{label}
+			</p>
+			<p className="mt-1 text-2xl font-semibold text-slate-950">
+				{value}
+			</p>
+		</div>
 	);
 }
 

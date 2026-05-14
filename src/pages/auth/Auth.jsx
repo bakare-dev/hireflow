@@ -1,7 +1,24 @@
-import { Outlet } from "react-router";
+import { Navigate, Outlet } from "react-router";
+import { useSelector } from "react-redux";
+import { selectAuthRole, selectAuthStatus } from "../../store/slices/authSlice";
+import { ROLE_HOME_PATHS } from "../../constants/roles";
+import { ROUTES } from "../../constants/routes";
 import AuthLeftSide from "./AuthLeftSide";
 
 function Auth() {
+	const status = useSelector(selectAuthStatus);
+	const role = useSelector(selectAuthRole);
+
+	if (status === "idle" || status === "loading") {
+		return null;
+	}
+
+	if (status === "authenticated" && role) {
+		return (
+			<Navigate to={ROLE_HOME_PATHS[role] ?? ROUTES.DASHBOARD} replace />
+		);
+	}
+
 	return (
 		<div className="grid min-h-screen grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
 			<AuthLeftSide />

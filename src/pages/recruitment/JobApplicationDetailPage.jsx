@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
@@ -163,6 +163,35 @@ function JobApplicationDetailPage() {
 					/>
 				</CardBody>
 			</Card>
+
+			<div
+				role="note"
+				className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+			>
+				<svg
+					aria-hidden
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
+				>
+					<path
+						fillRule="evenodd"
+						d="M8.485 2.495c.69-1.327 2.34-1.327 3.03 0l6.28 12.062c.643 1.235-.243 2.693-1.515 2.693H3.72c-1.272 0-2.158-1.458-1.515-2.693L8.485 2.495zM10 7a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 7zm0 8a1 1 0 100-2 1 1 0 000 2z"
+						clipRule="evenodd"
+					/>
+				</svg>
+				<div>
+					<p className="font-semibold">
+						AI screening is a signal, not a verdict.
+					</p>
+					<p className="mt-0.5 text-amber-800">
+						Match scores, narrative summaries, and inconsistency
+						flags are model-generated and can be wrong. Always read
+						the candidate's resume and screening answers below
+						before advancing or rejecting.
+					</p>
+				</div>
+			</div>
 
 			{screeningResult ? (
 				<ScreeningPanel
@@ -455,13 +484,15 @@ function JobApplicationDetailPage() {
 				</CardBody>
 			</Card>
 
-			<UpdateStageModal
-				open={stageModalOpen}
-				currentStage={stage}
-				submitting={isUpdatingStage}
-				onClose={() => setStageModalOpen(false)}
-				onSubmit={handleStageSubmit}
-			/>
+			{stageModalOpen ? (
+				<UpdateStageModal
+					open
+					currentStage={stage}
+					submitting={isUpdatingStage}
+					onClose={() => setStageModalOpen(false)}
+					onSubmit={handleStageSubmit}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -475,13 +506,6 @@ function UpdateStageModal({
 }) {
 	const [targetStage, setTargetStage] = useState("");
 	const [reason, setReason] = useState("");
-
-	useEffect(() => {
-		if (!open) {
-			setTargetStage("");
-			setReason("");
-		}
-	}, [open]);
 
 	function handleSubmit(event) {
 		event.preventDefault();

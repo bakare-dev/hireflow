@@ -1,8 +1,6 @@
 import { Navigate, Route, Routes } from "react-router";
-import { useSelector } from "react-redux";
 import { ROUTES } from "../constants/routes";
-import { ROLE_HOME_PATHS, USER_ROLES } from "../constants/roles";
-import { selectAuthRole, selectAuthStatus } from "../store/slices/authSlice";
+import { USER_ROLES } from "../constants/roles";
 import useSyncMyProfile from "../hooks/useSyncMyProfile";
 import useApplicationStream from "../hooks/useApplicationStream";
 
@@ -13,6 +11,7 @@ import RoleGuard from "./RoleGuard";
 
 import NotFound from "../pages/shared/NotFound";
 import ComingSoon from "../pages/shared/ComingSoon";
+import Landing from "../pages/shared/Landing";
 import Auth from "../pages/auth/Auth";
 import SignIn from "../pages/auth/SignIn";
 import SignUp from "../pages/auth/SignUp";
@@ -48,18 +47,6 @@ import AuditLogsPage from "../pages/recruitment/AuditLogsPage";
 import OrganizationSettingsPage from "../pages/recruitment/OrganizationSettingsPage";
 import ReviewModerationPage from "../pages/recruitment/ReviewModerationPage";
 
-function RootRedirect() {
-	const status = useSelector(selectAuthStatus);
-	const role = useSelector(selectAuthRole);
-
-	if (status === "idle" || status === "loading") return null;
-	if (status !== "authenticated" || !role) {
-		return <Navigate to={ROUTES.SIGN_IN} replace />;
-	}
-
-	return <Navigate to={ROLE_HOME_PATHS[role] ?? ROUTES.SIGN_IN} replace />;
-}
-
 function AppRoutes() {
 	useSyncMyProfile();
 	useApplicationStream();
@@ -67,7 +54,7 @@ function AppRoutes() {
 	return (
 		<Routes>
 			<Route element={<PublicLayout />}>
-				<Route index element={<RootRedirect />} />
+				<Route index element={<Landing />} />
 			</Route>
 
 			<Route element={<Auth />}>

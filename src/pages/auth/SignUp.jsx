@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useDispatch } from "react-redux";
 import {
 	useRegisterMutation,
@@ -32,19 +32,38 @@ const ROLE = Object.freeze({
 	RECRUITER: "RECRUITER",
 });
 
+const ROLE_FROM_PARAM = {
+	applicant: ROLE.APPLICANT,
+	candidate: ROLE.APPLICANT,
+	recruiter: ROLE.RECRUITER,
+	hiring: ROLE.RECRUITER,
+};
+
 function SignUp() {
 	const dispatch = useDispatch();
 	const navigate = useNavigate();
 	const toast = useToast();
+	const [params] = useSearchParams();
 	const [register, { isLoading: registering }] = useRegisterMutation();
 	const [verifyOtp, { isLoading: verifying }] = useVerifyOtpMutation();
 	const [login, { isLoading: loggingIn }] = useLoginMutation();
 	const [createCompany, { isLoading: creatingCompany }] =
 		useCreateCompanyMutation();
 
-	const [step, setStep] = useState(STEP.ROLE);
-	const [role, setRole] = useState(null);
+	const presetRole = ROLE_FROM_PARAM[params.get("as")?.toLowerCase()] ?? null;
+
+	const [step, setStep] = useState(presetRole ? STEP.FORM : STEP.ROLE);
+	const [role, setRole] = useState(presetRole);
 	const [formData, setFormData] = useState(null);
+
+	useEffect(() => {
+		if (presetRole && role !== presetRole) {
+			setRole(presetRole);
+			setStep((current) =>
+				current === STEP.ROLE ? STEP.FORM : current,
+			);
+		}
+	}, [presetRole, role]);
 
 	const [otp, setOtp] = useState("");
 	const [otpError, setOtpError] = useState(null);

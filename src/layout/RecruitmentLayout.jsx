@@ -8,21 +8,12 @@ import { selectAuthRole } from "../store/slices/authSlice";
 const SHARED_NAV = [
 	{ label: "Dashboard", to: ROUTES.DASHBOARD, end: true },
 	{ label: "Job listings", to: ROUTES.JOB_LISTINGS },
-	// { label: "Candidates", to: ROUTES.CANDIDATES },
-	// { label: "Interviews", to: ROUTES.INTERVIEWS },
-	// { label: "Offers", to: ROUTES.OFFERS },
-	// { label: "AI Screening", to: ROUTES.AI_SCREENING },
-	// { label: "Analytics", to: ROUTES.ANALYTICS },
-	// { label: "Messages", to: ROUTES.MESSAGES },
-	// { label: "Notifications", to: ROUTES.NOTIFICATIONS },
 ];
 
 const ADMIN_ONLY_NAV = [
 	{ label: "Team Management", to: ROUTES.TEAM_MANAGEMENT },
 	{ label: "Scorecard Templates", to: ROUTES.SCORECARD_TEMPLATES },
-	// { label: "Review Moderation", to: ROUTES.REVIEW_MODERATION },
-	// { label: "Audit Logs", to: ROUTES.AUDIT_LOGS },
-	// { label: "Organization Settings", to: ROUTES.ORGANIZATION_SETTINGS },
+	{ label: "Audit Logs", to: ROUTES.AUDIT_LOGS },
 ];
 
 function RecruitmentLayout() {

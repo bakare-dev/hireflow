@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
 	useLoginMutation,
 	useRegisterMutation,
@@ -35,8 +35,16 @@ const ROLE_FROM_PARAM = {
 
 function SignUp() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const toast = useToast();
 	const [params] = useSearchParams();
+	const pendingOtp =
+		location.state?.step === "OTP" && location.state?.email
+			? {
+					email: location.state.email,
+					password: location.state.password ?? "",
+				}
+			: null;
 	const [register, { isLoading: registering }] = useRegisterMutation();
 	const [verifyOtp, { isLoading: verifying }] = useVerifyOtpMutation();
 	const [login, { isLoading: resending }] = useLoginMutation();

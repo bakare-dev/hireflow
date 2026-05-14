@@ -1,22 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useDispatch } from "react-redux";
 import {
 	useRegisterMutation,
 	useVerifyOtpMutation,
-	useLoginMutation,
 } from "../../api/authApi";
-import { useCreateCompanyMutation } from "../../api/companiesApi";
 import { ROUTES } from "../../constants/routes";
 import useToast from "../../hooks/useToast";
 import { toRegistrationPayload } from "../../utils/api";
-import { apiHandler } from "../../services/api";
-import { setAuthenticatedUser } from "../../store/slices/authSlice";
 import AuthHeader from "./components/AuthHeader";
 import SignUpRoleChoice from "./components/SignUpRoleChoice";
 import ApplicantSignUpForm from "./components/ApplicantSignUpForm";
 import RecruiterSignUpForm from "./components/RecruiterSignUpForm";
-import CompanyDetailsForm from "./components/CompanyDetailsForm";
 import OtpInput from "./components/OtpInput";
 import Button from "../../components/common/Button";
 
@@ -24,7 +18,6 @@ const STEP = Object.freeze({
 	ROLE: "ROLE",
 	FORM: "FORM",
 	OTP: "OTP",
-	COMPANY: "COMPANY",
 });
 
 const ROLE = Object.freeze({
@@ -40,15 +33,11 @@ const ROLE_FROM_PARAM = {
 };
 
 function SignUp() {
-	const dispatch = useDispatch();
 	const navigate = useNavigate();
 	const toast = useToast();
 	const [params] = useSearchParams();
 	const [register, { isLoading: registering }] = useRegisterMutation();
 	const [verifyOtp, { isLoading: verifying }] = useVerifyOtpMutation();
-	const [login, { isLoading: loggingIn }] = useLoginMutation();
-	const [createCompany, { isLoading: creatingCompany }] =
-		useCreateCompanyMutation();
 
 	const presetRole = ROLE_FROM_PARAM[params.get("as")?.toLowerCase()] ?? null;
 
@@ -102,59 +91,11 @@ function SignUp() {
 				otp,
 			}).unwrap();
 			toast.success(response?.message ?? "Email verified successfully.");
-
-			try {
-				const user = await login({
-					email: formData.email,
-					password: formData.password,
-				}).unwrap();
-				dispatch(setAuthenticatedUser(user));
-
-				if (role === ROLE.APPLICANT) {
-					const hasResume = !!user.resumeUrl;
-					if (!hasResume) {
-						navigate(`${ROUTES.APPLICANT_PROFILE}?tab=resume`);
-						return;
-					}
-					navigate(ROUTES.APPLICANT_JOBS);
-					return;
-				}
-
-				if (role === ROLE.RECRUITER) {
-					try {
-						const company = await apiHandler.get("/companies/me");
-						if (company) {
-							navigate(ROUTES.DASHBOARD);
-						} else {
-							setStep(STEP.COMPANY);
-						}
-					} catch {
-						setStep(STEP.COMPANY);
-					}
-				}
-			} catch (loginErr) {
-				toast.error(
-					loginErr.data?.message ??
-						loginErr.error ??
-						"Login failed after registration.",
-				);
-				navigate(ROUTES.SIGN_IN);
-			}
+			toast.success("Account created. Please sign in to continue.");
+			navigate(ROUTES.SIGN_IN);
 		} catch (err) {
 			setOtpError(
 				err.data?.message ?? err.error ?? "OTP verification failed.",
-			);
-		}
-	}
-
-	async function handleCompanySubmit(companyData) {
-		try {
-			await createCompany(companyData).unwrap();
-			toast.success("Company created successfully!");
-			navigate(ROUTES.DASHBOARD);
-		} catch (err) {
-			toast.error(
-				err.data?.message ?? err.error ?? "Company creation failed.",
 			);
 		}
 	}
@@ -220,22 +161,6 @@ function SignUp() {
 		);
 	}
 
-	if (step === STEP.COMPANY) {
-		return (
-			<div className="space-y-8">
-				<AuthHeader
-					eyebrow="Complete your profile"
-					title="Tell us about your company"
-					subtitle="This helps us set up your recruitment workspace. You can edit these details later."
-				/>
-				<CompanyDetailsForm
-					onSubmit={handleCompanySubmit}
-					submitting={creatingCompany}
-				/>
-			</div>
-		);
-	}
-
 	return (
 		<div className="space-y-8">
 			<AuthHeader
@@ -258,13 +183,9 @@ function SignUp() {
 				<Button
 					type="submit"
 					className="w-full"
-					disabled={verifying || loggingIn}
+					disabled={verifying}
 				>
-					{verifying
-						? "Verifying…"
-						: loggingIn
-							? "Logging in…"
-							: "Verify and continue"}
+					{verifying ? "Verifying…" : "Verify and continue"}
 				</Button>
 			</form>
 

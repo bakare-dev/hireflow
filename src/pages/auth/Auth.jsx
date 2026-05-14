@@ -1,19 +1,26 @@
-import { Navigate, Outlet } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { useSelector } from "react-redux";
 import { selectAuthRole, selectAuthStatus } from "../../store/slices/authSlice";
-import { ROLE_HOME_PATHS } from "../../constants/roles";
+import { ROLE_HOME_PATHS, USER_ROLES } from "../../constants/roles";
 import { ROUTES } from "../../constants/routes";
 import AuthLeftSide from "./AuthLeftSide";
 
 function Auth() {
 	const status = useSelector(selectAuthStatus);
 	const role = useSelector(selectAuthRole);
+	const location = useLocation();
 
 	if (status === "idle" || status === "loading") {
 		return null;
 	}
 
-	if (status === "authenticated" && role) {
+	// Authenticated admins are allowed to stay on /company-setup so they can
+	// finish onboarding before being bounced to the dashboard.
+	const isCompanySetup = location.pathname === ROUTES.COMPANY_SETUP;
+	const canStayOnCompanySetup =
+		isCompanySetup && role === USER_ROLES.ADMIN;
+
+	if (status === "authenticated" && role && !canStayOnCompanySetup) {
 		return (
 			<Navigate to={ROLE_HOME_PATHS[role] ?? ROUTES.DASHBOARD} replace />
 		);

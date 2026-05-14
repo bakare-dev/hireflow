@@ -4,7 +4,8 @@ import { useDispatch } from "react-redux";
 import { useLoginMutation } from "../../api/authApi";
 import { setAuthenticatedUser } from "../../store/slices/authSlice";
 import { ROUTES } from "../../constants/routes";
-import { ROLE_HOME_PATHS } from "../../constants/roles";
+import { ROLE_HOME_PATHS, USER_ROLES } from "../../constants/roles";
+import { apiHandler } from "../../services/api";
 import Input from "../../components/common/Input";
 import Button from "../../components/common/Button";
 import useToast from "../../hooks/useToast";
@@ -24,6 +25,22 @@ function SignIn() {
 		try {
 			const user = await login({ email, password }).unwrap();
 			dispatch(setAuthenticatedUser(user));
+
+			// Admins without a company need to finish onboarding before
+			// landing in the dashboard.
+			if (user.role === USER_ROLES.ADMIN) {
+				try {
+					const company = await apiHandler.get("/companies/me");
+					if (!company) {
+						navigate(ROUTES.COMPANY_SETUP, { replace: true });
+						return;
+					}
+				} catch {
+					navigate(ROUTES.COMPANY_SETUP, { replace: true });
+					return;
+				}
+			}
+
 			const next = ROLE_HOME_PATHS[user.role] ?? ROUTES.LANDING;
 			navigate(next);
 		} catch (err) {

@@ -1,9 +1,7 @@
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
+import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?worker";
 
-GlobalWorkerOptions.workerSrc = new URL(
-	"pdfjs-dist/build/pdf.worker.min.mjs",
-	import.meta.url,
-).href;
+GlobalWorkerOptions.workerPort = new PdfWorker();
 
 const SECTION_RE = {
 	summary:
@@ -352,7 +350,10 @@ function parseEntryHeader(line, dateMatch) {
 	const pipeIdx = line.lastIndexOf("|", dateMatch.index);
 	const boundary = pipeIdx !== -1 ? pipeIdx : dateMatch.index;
 
-	const beforeDate = line.slice(0, boundary).replace(/[|\s,]+$/, "").trim();
+	const beforeDate = line
+		.slice(0, boundary)
+		.replace(/[|\s,]+$/, "")
+		.trim();
 
 	const dashMatch = beforeDate.match(/^(.+?)\s*[–—]\s*(.+)$/);
 	if (dashMatch) {
@@ -466,7 +467,8 @@ function parseEducation(eduLines) {
 				const degreeIdx = lines.findIndex((l) => DEGREE_RE.test(l));
 				if (degreeIdx !== -1) {
 					degree = lines[degreeIdx];
-					institutionName = lines.find((_, i) => i !== degreeIdx) || "";
+					institutionName =
+						lines.find((_, i) => i !== degreeIdx) || "";
 				} else {
 					institutionName = lines[0];
 					degree = lines.slice(1).join(", ");

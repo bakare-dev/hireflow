@@ -107,33 +107,31 @@ export const restoreSession = createAsyncThunk(
 	},
 );
 
-export const logout = createAsyncThunk("auth/logout", async (_arg, { dispatch }) => {
-	// Order matters: drop the token first so any in-flight refetch hits the
-	// "unauthorized" path instead of attaching the old token to the new user.
-	setAuthToken(null);
-	persistSessionUser(null);
-	// Best-effort: clear any other namespaced keys we ever wrote so a stale
-	// `hireflow.*` entry can't leak between sessions.
-	if (typeof window !== "undefined") {
-		try {
-			for (const key of Object.keys(window.localStorage)) {
-				if (key.startsWith("hireflow.")) {
-					window.localStorage.removeItem(key);
+export const logout = createAsyncThunk(
+	"auth/logout",
+	async (_arg, { dispatch }) => {
+		setAuthToken(null);
+		persistSessionUser(null);
+		if (typeof window !== "undefined") {
+			try {
+				for (const key of Object.keys(window.localStorage)) {
+					if (key.startsWith("hireflow.")) {
+						window.localStorage.removeItem(key);
+					}
 				}
-			}
-			for (const key of Object.keys(window.sessionStorage)) {
-				if (key.startsWith("hireflow.")) {
-					window.sessionStorage.removeItem(key);
+				for (const key of Object.keys(window.sessionStorage)) {
+					if (key.startsWith("hireflow.")) {
+						window.sessionStorage.removeItem(key);
+					}
 				}
+			} catch {
+				/* storage disabled — ignore */
 			}
-		} catch {
-			/* storage disabled — ignore */
 		}
-	}
-	// Wipe the RTK Query cache so the next signed-in user doesn't see the
-	// previous user's /users/me, /companies/me, applications, etc.
-	dispatch(baseApi.util.resetApiState());
-});
+
+		dispatch(baseApi.util.resetApiState());
+	},
+);
 
 const authSlice = createSlice({
 	name: "auth",

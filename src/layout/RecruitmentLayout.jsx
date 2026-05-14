@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
+import { Navigate } from "react-router";
 import AppLayout from "./AppLayout";
 import { ROUTES } from "../constants/routes";
 import { USER_ROLES } from "../constants/roles";
-import { selectAuthRole } from "../store/slices/authSlice";
+import { selectAuthRole, selectAuthStatus } from "../store/slices/authSlice";
+import { useGetMyCompanyQuery } from "../api/companiesApi";
 
 const SHARED_NAV = [
 	{ label: "Dashboard", to: ROUTES.DASHBOARD, end: true },
@@ -17,18 +19,31 @@ const ADMIN_ONLY_NAV = [
 ];
 
 function RecruitmentLayout() {
+	const status = useSelector(selectAuthStatus);
 	const role = useSelector(selectAuthRole);
+	const isAdmin = role === USER_ROLES.ADMIN;
+
+	const {
+		data: company,
+		isLoading: companyLoading,
+		isError: companyError,
+	} = useGetMyCompanyQuery(undefined, {
+		skip: status !== "authenticated" || !isAdmin,
+	});
+
 	const navItems = useMemo(() => {
-		if (role === USER_ROLES.ADMIN) {
-			return [...SHARED_NAV, ...ADMIN_ONLY_NAV];
-		}
+		if (isAdmin) return [...SHARED_NAV, ...ADMIN_ONLY_NAV];
 		return SHARED_NAV;
-	}, [role]);
+	}, [isAdmin]);
+
+	if (isAdmin && !companyLoading && (companyError || !company)) {
+		return <Navigate to={ROUTES.COMPANY_SETUP} replace />;
+	}
 
 	return (
 		<AppLayout
 			navItems={navItems}
-			title={role === USER_ROLES.ADMIN ? "Admin" : "Hiring Manager"}
+			title={isAdmin ? "Admin" : "Hiring Manager"}
 		/>
 	);
 }

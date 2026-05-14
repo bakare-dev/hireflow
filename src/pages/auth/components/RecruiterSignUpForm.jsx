@@ -25,7 +25,6 @@ function RecruiterSignUpForm({
 			lastName,
 			email,
 			password,
-			role: "ADMIN",
 		});
 	}
 

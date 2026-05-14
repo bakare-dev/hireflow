@@ -14,11 +14,9 @@ function Auth() {
 		return null;
 	}
 
-	// Authenticated admins are allowed to stay on /company-setup so they can
-	// finish onboarding before being bounced to the dashboard.
-	const isCompanySetup = location.pathname === ROUTES.COMPANY_SETUP;
-	const canStayOnCompanySetup =
-		isCompanySetup && role === USER_ROLES.ADMIN;
+	const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
+	const isCompanySetup = normalizedPath === ROUTES.COMPANY_SETUP;
+	const canStayOnCompanySetup = isCompanySetup && role === USER_ROLES.ADMIN;
 
 	if (status === "authenticated" && role && !canStayOnCompanySetup) {
 		return (

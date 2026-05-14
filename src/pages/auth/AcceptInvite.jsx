@@ -37,11 +37,10 @@ function AcceptInvite() {
 				lastName: lastName.trim(),
 				password,
 			}).unwrap();
+			const destination = ROLE_HOME_PATHS[user.role] ?? ROUTES.DASHBOARD;
 			dispatch(setAuthenticatedUser(user));
 			toast.success("Welcome to HireFlow.");
-			navigate(ROLE_HOME_PATHS[user.role] ?? ROUTES.DASHBOARD, {
-				replace: true,
-			});
+			navigate(destination, { replace: true });
 		} catch (err) {
 			toast.error(
 				err.data?.message ??

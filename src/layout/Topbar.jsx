@@ -12,7 +12,7 @@ function Topbar({ title, onMenuClick }) {
 
 	async function handleLogout() {
 		await dispatch(logout()).unwrap();
-		navigate(ROUTES.LANDING);
+		navigate(ROUTES.SIGN_IN, { replace: true });
 	}
 
 	return (

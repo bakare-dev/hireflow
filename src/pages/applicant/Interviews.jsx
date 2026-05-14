@@ -1,117 +1,255 @@
+import { useMemo } from "react";
 import { Link } from "react-router";
-import { useSelector } from "react-redux";
+import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
+import Card, { CardBody, CardHeader } from "../../components/common/Card";
 import EmptyState from "../../components/common/EmptyState";
+import PageHeader from "../../components/common/PageHeader";
 import { ROUTES } from "../../constants/routes";
-import { selectAuthUser } from "../../store/slices/authSlice";
-import { selectApplicationsByApplicant } from "../../store/slices/applicationsSlice";
-import { selectInterviewSlots } from "../../store/slices/interviewsSlice";
-import { selectJobs } from "../../store/slices/jobsSlice";
-import { formatDateTime } from "../../utils/date";
+import { useGetMyApplicationsQuery } from "../../api/applicationsApi";
+import { useGetInterviewQuery } from "../../api/interviewsApi";
 
-const DEMO_NOW_MS = new Date("2026-05-07T00:00:00.000Z").getTime();
+const INTERVIEW_STATUS_STYLES = {
+	SCHEDULED: "bg-teal-100 text-teal-700 ring-teal-200",
+	COMPLETED: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+	CANCELLED: "bg-slate-100 text-slate-500 ring-slate-200",
+	NO_SHOW: "bg-rose-100 text-rose-700 ring-rose-200",
+};
+
+const INTERVIEW_STATUS_LABELS = {
+	SCHEDULED: "Scheduled",
+	COMPLETED: "Completed",
+	CANCELLED: "Cancelled",
+	NO_SHOW: "No-show",
+};
+
+const STAGES_WITH_INTERVIEW = new Set([
+	"INTERVIEW_SCHEDULED",
+	"OFFER_SENT",
+	"HIRED",
+	"REJECTED",
+]);
 
 function Interviews() {
-	const user = useSelector(selectAuthUser);
-	const applications = useSelector(selectApplicationsByApplicant(user?.id));
-	const slots = useSelector(selectInterviewSlots);
-	const jobs = useSelector(selectJobs);
-	const appIds = new Set(applications.map((app) => app.id));
-	const appById = new Map(applications.map((app) => [app.id, app]));
-	const jobById = new Map(jobs.map((job) => [job.id, job]));
-	const mySlots = slots
-		.filter((slot) => appIds.has(slot.applicationId))
-		.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+	const {
+		data: response,
+		isLoading,
+		isError,
+	} = useGetMyApplicationsQuery({
+		page: 0,
+		size: 50,
+	});
 
-	const upcoming = mySlots.filter(
-		(slot) => new Date(slot.scheduledAt).getTime() >= DEMO_NOW_MS,
-	);
-	const past = mySlots.filter(
-		(slot) => new Date(slot.scheduledAt).getTime() < DEMO_NOW_MS,
+	const applications = useMemo(() => response?.content ?? [], [response]);
+	const relevant = useMemo(
+		() =>
+			applications.filter((app) => STAGES_WITH_INTERVIEW.has(app.stage)),
+		[applications],
 	);
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<p className="text-sm font-medium text-slate-500">Interviews</p>
-				<h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
-					Your interview plan.
-				</h1>
-			</div>
+			<PageHeader
+				eyebrow="Interviews"
+				title="Your interview plan"
+				description="Every interview tied to one of your applications, with the meeting link and timing."
+			/>
 
-			<InterviewGroup
-				title="Upcoming"
-				slots={upcoming}
-				appById={appById}
-				jobById={jobById}
-				empty="No upcoming interviews yet."
-			/>
-			<InterviewGroup
-				title="Completed"
-				slots={past}
-				appById={appById}
-				jobById={jobById}
-				empty="Past interviews will appear here."
-			/>
+			{isLoading ? (
+				<Card>
+					<CardBody>
+						<EmptyState
+							title="Loading interviews"
+							description="Fetching your applications…"
+						/>
+					</CardBody>
+				</Card>
+			) : isError ? (
+				<Card>
+					<CardBody>
+						<EmptyState
+							title="Unable to load interviews"
+							description="Please refresh or try again in a moment."
+						/>
+					</CardBody>
+				</Card>
+			) : relevant.length ? (
+				<div className="space-y-4">
+					{relevant.map((app) => (
+						<InterviewRow key={app.id} application={app} />
+					))}
+				</div>
+			) : (
+				<Card>
+					<CardBody>
+						<EmptyState
+							title="No interviews yet"
+							description="Once a recruiter schedules an interview, it'll show up here with the meeting link."
+						/>
+					</CardBody>
+				</Card>
+			)}
 		</div>
 	);
 }
 
-function InterviewGroup({ title, slots, appById, jobById, empty }) {
+function InterviewRow({ application }) {
+	const { id: applicationId, jobTitle, companyName, stage } = application;
+	const {
+		data: slot,
+		isLoading,
+		isError,
+		error,
+	} = useGetInterviewQuery(applicationId, { skip: !applicationId });
+
+	const notFound =
+		isError && (error?.status === 404 || error?.data?.status === 404);
+	if (notFound) return null;
+
 	return (
-		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-			<h2 className="text-lg font-semibold text-slate-950">{title}</h2>
-			{slots.length ? (
-				<div className="mt-4 grid gap-4">
-					{slots.map((slot) => {
-						const application = appById.get(slot.applicationId);
-						const job = jobById.get(application?.jobListingId);
-						return (
-							<article
-								key={slot.id}
-								className="rounded-lg border border-slate-200 p-4"
+		<Card>
+			<CardHeader>
+				<div className="flex flex-wrap items-start justify-between gap-2">
+					<div>
+						<h2 className="text-base font-semibold text-slate-950">
+							{jobTitle ?? "Interview"}
+						</h2>
+						<p className="mt-0.5 text-sm text-slate-500">
+							{companyName ?? "—"}
+						</p>
+					</div>
+					<div className="flex items-center gap-2">
+						{slot?.status ? (
+							<Badge
+								className={
+									INTERVIEW_STATUS_STYLES[slot.status] ??
+									"bg-slate-100 text-slate-700 ring-slate-200"
+								}
 							>
-								<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-									<div>
-										<p className="text-lg font-semibold text-slate-950">
-											{job?.title ?? "Interview"}
-										</p>
-										<p className="mt-1 text-sm text-slate-600">
-											{formatDateTime(slot.scheduledAt)} ·{" "}
-											{slot.durationMinutes} minutes
-										</p>
-									</div>
-									<Link to={ROUTES.APPLICANT_APPLICATION(slot.applicationId)}>
-										<Button variant="secondary" size="sm">
-											View application
-										</Button>
-									</Link>
-								</div>
-								<div className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
-									<p>Prep: review role skills and recent work examples.</p>
-									<p>Reschedule: message the hiring team.</p>
-									<p>
-										{slot.reviewSubmittedAt
-											? "Feedback submitted"
-											: "Feedback pending"}
-									</p>
-								</div>
-								{slot.meetLink ? (
-									<a href={slot.meetLink} target="_blank" rel="noreferrer">
-										<Button className="mt-4">Join link</Button>
-									</a>
-								) : null}
-							</article>
-						);
-					})}
+								{INTERVIEW_STATUS_LABELS[slot.status] ??
+									slot.status}
+							</Badge>
+						) : null}
+						<Link to={ROUTES.APPLICANT_APPLICATION(applicationId)}>
+							<Button size="sm" variant="secondary">
+								View application
+							</Button>
+						</Link>
+					</div>
 				</div>
-			) : (
-				<div className="mt-4">
-					<EmptyState title={empty} description="We will show details here." />
-				</div>
-			)}
-		</section>
+			</CardHeader>
+			<CardBody>
+				{isLoading ? (
+					<p className="text-sm text-slate-500">
+						Loading interview details…
+					</p>
+				) : isError ? (
+					<p className="text-sm text-rose-600">
+						Unable to load this interview.
+					</p>
+				) : slot ? (
+					<div className="space-y-3">
+						<div className="grid gap-3 sm:grid-cols-2">
+							<Stat
+								label="Starts"
+								value={formatDateTime(
+									slot.startTime,
+									slot.timezone,
+								)}
+							/>
+							<Stat
+								label="Ends"
+								value={formatDateTime(
+									slot.endTime,
+									slot.timezone,
+								)}
+							/>
+							<Stat
+								label="Timezone"
+								value={slot.timezone ?? "—"}
+							/>
+							<Stat
+								label="Interviewer"
+								value={slot.interviewerEmail ?? "—"}
+							/>
+						</div>
+						{slot.notes ? (
+							<div>
+								<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+									Notes from the team
+								</p>
+								<p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+									{slot.notes}
+								</p>
+							</div>
+						) : null}
+						{slot.meetingLink && slot.status === "SCHEDULED" ? (
+							<div>
+								<a
+									href={slot.meetingLink}
+									target="_blank"
+									rel="noreferrer"
+								>
+									<Button size="sm">Join meeting</Button>
+								</a>
+								<p className="mt-1 text-xs text-slate-500">
+									{slot.meetingLink}
+								</p>
+							</div>
+						) : slot.meetingLink ? (
+							<a
+								href={slot.meetingLink}
+								target="_blank"
+								rel="noreferrer"
+								className="text-xs text-slate-500 underline"
+							>
+								Meeting link
+							</a>
+						) : null}
+						{slot.status === "CANCELLED" ? (
+							<p className="text-xs text-slate-500">
+								This interview was cancelled. Your application
+								is under review again.
+							</p>
+						) : null}
+						{stage === "REJECTED" ? (
+							<p className="text-xs text-slate-500">
+								Application has since been closed.
+							</p>
+						) : null}
+					</div>
+				) : (
+					<p className="text-sm text-slate-500">
+						No interview details available yet.
+					</p>
+				)}
+			</CardBody>
+		</Card>
 	);
+}
+
+function Stat({ label, value }) {
+	return (
+		<div>
+			<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+				{label}
+			</p>
+			<p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
+		</div>
+	);
+}
+
+function formatDateTime(iso, timezone) {
+	if (!iso) return "—";
+	try {
+		return new Date(iso).toLocaleString(undefined, {
+			timeZone: timezone || undefined,
+			dateStyle: "medium",
+			timeStyle: "short",
+		});
+	} catch {
+		return new Date(iso).toLocaleString();
+	}
 }
 
 export default Interviews;

@@ -42,6 +42,34 @@ export const adminApi = baseApi.injectEndpoints({
 			},
 			invalidatesTags: ["Staff"],
 		}),
+		getApplicationVolume: builder.query({
+			async queryFn({ jobListingId } = {}) {
+				try {
+					const response = await apiHandler.get(
+						"/admin/metrics/application-volume",
+						{ params: { jobListingId: jobListingId || undefined } },
+					);
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			providesTags: ["Applications"],
+		}),
+		getTimeToHire: builder.query({
+			async queryFn({ jobListingId } = {}) {
+				try {
+					const response = await apiHandler.get(
+						"/admin/metrics/time-to-hire",
+						{ params: { jobListingId: jobListingId || undefined } },
+					);
+					return { data: response };
+				} catch (err) {
+					return { error: toRtkError(err) };
+				}
+			},
+			providesTags: ["Applications"],
+		}),
 	}),
 });
 
@@ -49,4 +77,6 @@ export const {
 	useInviteManagerMutation,
 	useListStaffQuery,
 	useDeleteStaffMutation,
+	useGetApplicationVolumeQuery,
+	useGetTimeToHireQuery,
 } = adminApi;

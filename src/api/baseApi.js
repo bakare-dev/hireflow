@@ -11,6 +11,8 @@ export const baseApi = createApi({
 		"Notifications",
 		"Companies",
 		"Staff",
+		"ScorecardTemplates",
+		"Scorecards",
 	],
 	endpoints: () => ({}),
 });

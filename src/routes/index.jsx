@@ -43,6 +43,7 @@ import InterviewFeedbackWorkspacePage from "../pages/recruitment/InterviewFeedba
 import OffersDashboardPage from "../pages/recruitment/OffersDashboardPage";
 import AnalyticsDashboardPage from "../pages/recruitment/AnalyticsDashboardPage";
 import TeamManagementPage from "../pages/recruitment/TeamManagementPage";
+import ScorecardTemplatesPage from "../pages/recruitment/ScorecardTemplatesPage";
 import AuditLogsPage from "../pages/recruitment/AuditLogsPage";
 import OrganizationSettingsPage from "../pages/recruitment/OrganizationSettingsPage";
 import ReviewModerationPage from "../pages/recruitment/ReviewModerationPage";
@@ -197,6 +198,10 @@ function AppRoutes() {
 				<Route
 					path={ROUTES.TEAM_MANAGEMENT}
 					element={<TeamManagementPage />}
+				/>
+				<Route
+					path={ROUTES.SCORECARD_TEMPLATES}
+					element={<ScorecardTemplatesPage />}
 				/>
 				<Route
 					path={ROUTES.REVIEW_MODERATION}

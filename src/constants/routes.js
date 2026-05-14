@@ -44,6 +44,7 @@ export const ROUTES = Object.freeze({
 	MESSAGES: "/messages",
 	NOTIFICATIONS: "/notifications",
 	TEAM_MANAGEMENT: "/team-management",
+	SCORECARD_TEMPLATES: "/scorecard-templates",
 	REVIEW_MODERATION: "/review-moderation",
 	AUDIT_LOGS: "/audit-logs",
 	ORGANIZATION_SETTINGS: "/organization-settings",

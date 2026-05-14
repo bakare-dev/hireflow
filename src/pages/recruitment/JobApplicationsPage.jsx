@@ -38,8 +38,6 @@ function JobApplicationsPage() {
 	const jobId = id ?? "";
 	const [page, setPage] = useState(0);
 	const [recommendation, setRecommendation] = useState("");
-	// Selection lives across pages, keyed by application id, so a recruiter
-	// can paginate and still batch the whole result.
 	const [selected, setSelected] = useState(() => new Set());
 	const [bulkOpen, setBulkOpen] = useState(false);
 
@@ -62,8 +60,6 @@ function JobApplicationsPage() {
 	const totalPages = pageable?.totalPages ?? 1;
 	const totalElements = pageable?.totalElements ?? applications.length;
 
-	// Reset paging + selection when the filter changes so the user never sees
-	// the wrong page index for the new dataset.
 	useEffect(() => {
 		setPage(0);
 	}, [recommendation]);

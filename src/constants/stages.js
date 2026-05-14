@@ -81,7 +81,6 @@ export function isTerminalStage(stage) {
 export const STAGE_TARGET_OPTIONS = Object.freeze([
 	{ value: "APPLIED", label: "Applied" },
 	{ value: "SCREENING", label: "Screening" },
-	{ value: "INTERVIEW_SCHEDULED", label: "Interview Scheduled" },
 	{ value: "OFFER_SENT", label: "Offer Sent" },
 	{ value: "HIRED", label: "Hired" },
 	{ value: "REJECTED", label: "Rejected" },

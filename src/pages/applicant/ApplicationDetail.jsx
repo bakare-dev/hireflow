@@ -5,6 +5,7 @@ import StageBadge from "../../components/domain/StageBadge";
 import { ROUTES } from "../../constants/routes";
 import { STAGE_LABELS } from "../../constants/stages";
 import { useGetMyApplicationQuery } from "../../api/applicationsApi";
+import { useGetInterviewQuery } from "../../api/interviewsApi";
 import { formatDate, formatDateTime } from "../../utils/date";
 import {
 	nextStageLabel,
@@ -20,6 +21,29 @@ function ApplicationDetail() {
 		isError,
 		error,
 	} = useGetMyApplicationQuery(id ?? "", { skip: !id });
+
+	const inlinedInterviewSlot = useMemo(() => {
+		if (!application) return null;
+		return (
+			application.interviewSlot ??
+			application.interviewSlots?.find(
+				(s) => s?.status === "SCHEDULED",
+			) ??
+			application.interviewSlots?.[
+				(application.interviewSlots?.length ?? 0) - 1
+			] ??
+			null
+		);
+	}, [application]);
+
+	const shouldFetchInterview =
+		!!id &&
+		!inlinedInterviewSlot &&
+		application?.stage === "INTERVIEW_SCHEDULED";
+	const { data: fetchedInterview } = useGetInterviewQuery(id ?? "", {
+		skip: !shouldFetchInterview,
+	});
+	const interviewSlot = inlinedInterviewSlot ?? fetchedInterview ?? null;
 
 	const timeline = useMemo(() => {
 		const updates = application?.stageUpdates ?? [];
@@ -99,6 +123,71 @@ function ApplicationDetail() {
 					/>
 				</div>
 			</section>
+
+			{interviewSlot && interviewSlot.status !== "CANCELLED" ? (
+				<section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<h2 className="text-lg font-semibold text-slate-950">
+							Interview
+						</h2>
+						<span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-medium text-teal-700 ring-1 ring-teal-200">
+							{interviewSlot.status ?? "SCHEDULED"}
+						</span>
+					</div>
+					<div className="mt-4 grid gap-3 sm:grid-cols-2">
+						<Info
+							label="Starts"
+							value={formatDateTime(interviewSlot.startTime)}
+						/>
+						<Info
+							label="Ends"
+							value={formatDateTime(interviewSlot.endTime)}
+						/>
+						<Info
+							label="Timezone"
+							value={interviewSlot.timezone ?? "—"}
+						/>
+						<Info
+							label="Interviewer"
+							value={interviewSlot.interviewerEmail ?? "—"}
+						/>
+					</div>
+					{interviewSlot.meetingLink ? (
+						<div className="mt-4">
+							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+								Meeting link
+							</p>
+							<a
+								href={interviewSlot.meetingLink}
+								target="_blank"
+								rel="noreferrer"
+								className="mt-1 inline-block break-all text-sm font-medium text-slate-900 underline"
+							>
+								{interviewSlot.meetingLink}
+							</a>
+							{interviewSlot.meetingProvider ? (
+								<p className="mt-1 text-xs text-slate-500">
+									via{" "}
+									{interviewSlot.meetingProvider.replace(
+										/_/g,
+										" ",
+									)}
+								</p>
+							) : null}
+						</div>
+					) : null}
+					{interviewSlot.notes ? (
+						<div className="mt-4">
+							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+								Notes from your interviewer
+							</p>
+							<p className="mt-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+								{interviewSlot.notes}
+							</p>
+						</div>
+					) : null}
+				</section>
+			) : null}
 
 			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
 				<section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

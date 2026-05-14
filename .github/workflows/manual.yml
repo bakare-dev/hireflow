@@ -24,7 +24,15 @@ jobs:
         run: docker rmi hireflow-frontend || true
 
       - name: Build frontend image
-        run: docker build -t hireflow-frontend .
+        run: |
+          set -a
+          . ./.env
+          set +a
+
+          docker build \
+            --build-arg VITE_API_BASE_URL="${VITE_API_BASE_URL}" \
+            --build-arg VITE_NOTIFICATION_BASE_URL="${VITE_NOTIFICATION_BASE_URL}" \
+            -t hireflow-frontend .
 
       - name: Start frontend container
         run: |

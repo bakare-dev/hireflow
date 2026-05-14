@@ -19,6 +19,7 @@ const SHARED_NAV = [
 
 const ADMIN_ONLY_NAV = [
 	{ label: "Team Management", to: ROUTES.TEAM_MANAGEMENT },
+	{ label: "Scorecard Templates", to: ROUTES.SCORECARD_TEMPLATES },
 	// { label: "Review Moderation", to: ROUTES.REVIEW_MODERATION },
 	// { label: "Audit Logs", to: ROUTES.AUDIT_LOGS },
 	// { label: "Organization Settings", to: ROUTES.ORGANIZATION_SETTINGS },

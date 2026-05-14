@@ -13,8 +13,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create production env file
+        run: |
+          echo "${{ secrets.PROD_ENV }}" > .env
+
       - name: Stop old container
         run: docker rm -f frontend || true
+
+      - name: Remove old image
+        run: docker rmi hireflow-frontend || true
 
       - name: Build frontend image
         run: docker build -t hireflow-frontend .
@@ -24,4 +31,8 @@ jobs:
           docker run -d \
             --name frontend \
             -p 3000:80 \
+            --restart unless-stopped \
             hireflow-frontend
+
+      - name: Cleanup dangling images
+        run: docker image prune -f

@@ -78,15 +78,6 @@ function SignIn() {
 					placeholder="••••••••"
 				/>
 
-				{/* <div className="flex justify-end text-sm">
-					<Link
-						to={ROUTES.PASSWORD_RESET}
-						className="font-medium text-slate-900 hover:underline"
-					>
-						Forgot password?
-					</Link>
-				</div> */}
-
 				<Button type="submit" className="w-full" disabled={isLoading}>
 					{isLoading ? "Signing in…" : "Sign in"}
 				</Button>

@@ -69,9 +69,11 @@ function SignUp() {
 	const presetRole = ROLE_FROM_PARAM[params.get("as")?.toLowerCase()] ?? null;
 
 	const [lastPresetRole, setLastPresetRole] = useState(presetRole);
-	const [step, setStep] = useState(presetRole ? STEP.FORM : STEP.ROLE);
+	const [step, setStep] = useState(
+		pendingOtp ? STEP.OTP : presetRole ? STEP.FORM : STEP.ROLE,
+	);
 	const [role, setRole] = useState(presetRole);
-	const [formData, setFormData] = useState(null);
+	const [formData, setFormData] = useState(pendingOtp);
 
 	if (presetRole && presetRole !== lastPresetRole) {
 		setLastPresetRole(presetRole);

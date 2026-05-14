@@ -17,8 +17,17 @@ function Auth() {
 	const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
 	const isCompanySetup = normalizedPath === ROUTES.COMPANY_SETUP;
 	const canStayOnCompanySetup = isCompanySetup && role === USER_ROLES.ADMIN;
+	// Accept-invite carries its own token in the query string and must always
+	// render — even if the browser already holds a session for a different
+	// user — otherwise the invitee can never finish setup.
+	const isAcceptInvite = normalizedPath === ROUTES.ACCEPT_INVITE;
 
-	if (status === "authenticated" && role && !canStayOnCompanySetup) {
+	if (
+		status === "authenticated" &&
+		role &&
+		!canStayOnCompanySetup &&
+		!isAcceptInvite
+	) {
 		return (
 			<Navigate to={ROLE_HOME_PATHS[role] ?? ROUTES.DASHBOARD} replace />
 		);
